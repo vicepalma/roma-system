@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: roma-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: roma
+      POSTGRES_USER: roma
+      POSTGRES_PASSWORD: roma
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U roma -d roma"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  adminer:
+    image: adminer:4
+    container_name: roma-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+  # (opcional) migrador automático con golang-migrate
+  migrator:
+    image: migrate/migrate:4
+    container_name: roma-migrator
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations
+    # OJO: si estás en Windows, cambia ${PWD} por la ruta del repo
+    command: [
+      "-path=/migrations",
+      "-database=postgres://roma:roma@postgres:5432/roma?sslmode=disable",
+      "up"
+    ]
+    restart: "no"
+
+volumes:
+  pgdata:
