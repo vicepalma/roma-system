@@ -1,0 +1,24 @@
+# Golang
+bin/
+*.exe
+*.out
+*.test
+
+# Node
+node_modules/
+dist/
+build/
+
+# Docker
+*.log
+.env
+.env.local
+
+# Database
+database/pgdata/
+*.sql~
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
