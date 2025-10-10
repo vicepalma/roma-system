@@ -1,0 +1,151 @@
+package main
+
+import (
+	"context"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+
+	"github.com/vicepalma/roma-system/backend/internal/repository"
+	"github.com/vicepalma/roma-system/backend/internal/security"
+	"github.com/vicepalma/roma-system/backend/internal/service"
+	httpHandlers "github.com/vicepalma/roma-system/backend/internal/transport/http"
+
+	sr "github.com/vicepalma/roma-system/backend/internal/repository"
+	ss "github.com/vicepalma/roma-system/backend/internal/service"
+	sh "github.com/vicepalma/roma-system/backend/internal/transport/http"
+)
+
+// loadEnv loads .env (if present) and reads required vars.
+func loadEnv() (port, dbURL, env string) {
+	_ = godotenv.Load() // no falla si no existe .env
+	port = os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	dbURL = os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatal("DB_URL no definido (configura backend/.env)")
+	}
+	env = os.Getenv("ENV")
+	if env == "" {
+		env = "dev"
+	}
+	return
+}
+
+// openDB opens a GORM connection and does a quick ping.
+func openDB(dsn string) *gorm.DB {
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatalf("error abriendo DB: %v", err)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("error obteniendo sql.DB: %v", err)
+	}
+	sqlDB.SetMaxOpenConns(10)
+	sqlDB.SetMaxIdleConns(5)
+	sqlDB.SetConnMaxLifetime(30 * time.Minute)
+
+	// ping inicial
+	if err := sqlDB.Ping(); err != nil {
+		log.Fatalf("DB no responde al ping: %v", err)
+	}
+	return db
+}
+
+func main() {
+	defTZ := os.Getenv("DEFAULT_TZ")
+	if defTZ == "" {
+		defTZ = "America/Santiago"
+	}
+
+	port, dbURL, env := loadEnv()
+	db := openDB(dbURL)
+	sqlDB, _ := db.DB()
+
+	// router
+	if env == "prod" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+	r := gin.Default()
+
+	// health endpoints
+	r.GET("/health/db", func(c *gin.Context) {
+		if err := sqlDB.Ping(); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"ok": false, "error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	// http server with graceful shutdown
+	srv := &http.Server{
+		Addr:              ":" + port,
+		Handler:           r,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	// Repos
+	userRepo := repository.NewUserRepository(db)
+	exRepo := repository.NewExerciseRepository(db)
+	progRepo := repository.NewProgramRepository(db)
+	progSvc := service.NewProgramService(progRepo)
+	progH := httpHandlers.NewProgramHandler(progSvc)
+	sessRepo := sr.NewSessionRepository(db)
+	sessSvc := ss.NewSessionService(sessRepo)
+	sessH := sh.NewSessionHandler(sessSvc)
+	histRepo := repository.NewHistoryRepository(db)
+	histSvc := service.NewHistoryService(histRepo)
+	histH := httpHandlers.NewHistoryHandler(histSvc)
+
+	// Handlers
+	authH := httpHandlers.NewAuthHandler(userRepo)
+
+	// exercise service/handler ya lo tienes:
+	svc := service.NewExerciseService(exRepo)
+	exH := httpHandlers.NewExerciseHandler(svc)
+
+	// Rutas públicas
+	r.GET("/ping", func(c *gin.Context) { c.JSON(200, gin.H{"message": "pong"}) })
+	pub := r.Group("/")
+	authH.Register(pub)
+
+	// Rutas protegidas
+	api := r.Group("/api", security.AuthRequired())
+	exH.Register(api)
+	progH.Register(api)
+	sessH.Register(api)
+	histH.Register(api)
+
+	// start async
+	go func() {
+		log.Printf("API escuchando en http://localhost:%s (env=%s)", port, env)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("ListenAndServe: %v", err)
+		}
+	}()
+
+	// wait for interrupt
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("apagando servidor...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("shutdown forzado: %v", err)
+	}
+	_ = sqlDB.Close()
+	log.Println("servidor detenido correctamente")
+}
