@@ -62,6 +62,16 @@ func (h *AuthHandler) register(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"user": gin.H{"id": u.ID, "name": u.Name, "email": u.Email}, "tokens": tokens})
 }
 
+// @Summary Login
+// @Description Autentica un usuario y devuelve access/refresh tokens.
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param body body struct{Email string `json:"email"`; Password string `json:"password"`} true "Credenciales"
+// @Success 200 {object} struct{Tokens struct{Access string `json:"access"`; Refresh string `json:"refresh"`}; User struct{ID string `json:"id"`; Email string `json:"email"`; Name string `json:"name"`} `json:"user"`}
+// @Failure 400 {object} map[string]string
+// @Router /auth/login [post]
+
 func (h *AuthHandler) login(c *gin.Context) {
 	var req loginReq
 	if err := c.ShouldBindJSON(&req); err != nil {

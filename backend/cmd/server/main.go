@@ -1,3 +1,17 @@
+// @title ROMA System API
+// @version 0.1
+// @description API para gestión de ejercicios, programas, sesiones y modo maestro.
+// @BasePath /
+// @schemes http
+//
+// @contact.name ROMA Dev Team
+// @contact.url https://github.com/vicepalma/roma-system
+//
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Esquema: "Bearer <token>"
+
 package main
 
 import (
@@ -14,11 +28,14 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	"github.com/vicepalma/roma-system/backend/internal/middleware"
 	"github.com/vicepalma/roma-system/backend/internal/repository"
 	"github.com/vicepalma/roma-system/backend/internal/security"
 	"github.com/vicepalma/roma-system/backend/internal/service"
 	httpHandlers "github.com/vicepalma/roma-system/backend/internal/transport/http"
 
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	sr "github.com/vicepalma/roma-system/backend/internal/repository"
 	ss "github.com/vicepalma/roma-system/backend/internal/service"
 	sh "github.com/vicepalma/roma-system/backend/internal/transport/http"
@@ -78,7 +95,9 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.Default()
-
+	// después de crear r:
+	r.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.Use(middleware.RequestID(), middleware.AccessLog())
 	// health endpoints
 	r.GET("/health/db", func(c *gin.Context) {
 		if err := sqlDB.Ping(); err != nil {
@@ -108,8 +127,10 @@ func main() {
 	histSvc := service.NewHistoryService(histRepo)
 	histH := httpHandlers.NewHistoryHandler(histSvc)
 	coachRepo := repository.NewCoachRepository(db)
-	coachSvc := service.NewCoachService(coachRepo)
+	coachSvc := service.NewCoachService(coachRepo, histSvc)
 	coachH := httpHandlers.NewCoachHandler(coachSvc)
+	meH := httpHandlers.NewMeHandler(histSvc)
+	healthH := httpHandlers.NewHealthHandler(db)
 
 	// Handlers
 	authH := httpHandlers.NewAuthHandler(userRepo)
@@ -120,17 +141,27 @@ func main() {
 
 	// Rutas públicas
 	r.GET("/ping", func(c *gin.Context) { c.JSON(200, gin.H{"message": "pong"}) })
+
 	pub := r.Group("/")
 	authH.Register(pub)
 
 	// Rutas protegidas
 	api := r.Group("/api", security.AuthRequired())
+	coach := api.Group("/coach")
+	{
+		coach.GET("/disciples/:id/today",
+			security.RequireCoachOf(coachSvc, "id"),
+			meH.GetTodayForDisciple,
+		)
+	}
+	healthH.Register(r)
 	exH.Register(api)
 	progH.Register(api)
 	sessH.Register(api)
 	histH.Register(api)
 	coachH.Register(api)
-
+	auth := r.Group("/auth")
+	auth.Use(middleware.NewLimiter(3, 5, 5*time.Minute).Gin())
 	// start async
 	go func() {
 		log.Printf("API escuchando en http://localhost:%s (env=%s)", port, env)

@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"sort"
 	"strings"
 	"time"
@@ -10,8 +12,18 @@ import (
 	"github.com/vicepalma/roma-system/backend/internal/repository"
 )
 
-// ---- PIVOT (para charts) ----
+type MeTodayResponse struct {
+	Day           interface{}   `json:"day,omitempty"`
+	Prescriptions []interface{} `json:"prescriptions,omitempty"`
+}
 
+type errorNoDay struct{}
+
+func (errorNoDay) Error() string { return "no_day" }
+
+var ErrNoDay = errorNoDay{}
+
+// ---- PIVOT (para charts) ----
 type PivotResponse struct {
 	Columns []string                         `json:"columns"`
 	Rows    []map[string]interface{}         `json:"rows"`
@@ -49,6 +61,10 @@ type HistoryService interface {
 
 	GetPivotByExercise(ctx context.Context, discipleID string, days int, includeCatalog bool, metric string, tz string) (*PivotResponse, error)
 	GetPivotByMuscle(ctx context.Context, discipleID string, days int, metric string, tz string) (*PivotResponse, error)
+
+	GetMeTodayFor(ctx context.Context, discipleID string) (*MeTodayResponse, error)
+	GetPivotByExerciseFor(ctx context.Context, discipleID string, days int, metric, tz string, includeCatalog bool) (*PivotResponse, error)
+	GetAdherence(ctx context.Context, discipleID string, days int, tz string) (Adherence, error)
 }
 
 type HistoryResponse struct {
@@ -316,6 +332,100 @@ func (s *historyService) GetPivotByMuscle(ctx context.Context, discipleID string
 		Mode:    "by_muscle",
 		Days:    clampDays(days),
 	}, nil
+}
+
+func (s *historyService) GetMeTodayFor(ctx context.Context, discipleID string) (*MeTodayResponse, error) {
+	// Usa la TZ por defecto del sistema o setéala en .env (aquí asumimos America/Santiago)
+	const defaultTZ = "America/Santiago"
+
+	day, presc, err := s.repo.ResolveToday(ctx, discipleID, defaultTZ)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNoDay
+		}
+		return nil, err
+	}
+
+	// Adaptamos la forma al contrato MeTodayResponse (simple)
+	dayObj := map[string]any{
+		"id":        day.ID,
+		"week_id":   day.WeekID,
+		"day_index": day.DayIndex,
+		"notes":     stringOrNil(day.Notes),
+	}
+	pOut := make([]map[string]any, 0, len(presc))
+	for _, p := range presc {
+		pOut = append(pOut, map[string]any{
+			"id":             p.ID,
+			"day_id":         p.DayID,
+			"exercise_id":    p.ExerciseID,
+			"series":         p.Series,
+			"reps":           p.Reps,
+			"rest_sec":       intOrNil(p.RestSec),
+			"to_failure":     p.ToFailure,
+			"position":       p.Position,
+			"exercise_name":  p.ExerciseName,
+			"primary_muscle": p.PrimaryMuscle,
+			"equipment":      stringOrNil(p.Equipment),
+		})
+	}
+
+	return &MeTodayResponse{
+		Day:           dayObj,
+		Prescriptions: anySlice(pOut),
+	}, nil
+}
+
+func stringOrNil(ns sql.NullString) any {
+	if ns.Valid {
+		return ns.String
+	}
+	return nil
+}
+func intOrNil(ni sql.NullInt32) any {
+	if ni.Valid {
+		return int(ni.Int32)
+	}
+	return nil
+}
+func anySlice[T any](in []T) []any {
+	out := make([]any, len(in))
+	for i := range in {
+		out[i] = in[i]
+	}
+	return out
+}
+
+func (s *historyService) GetPivotByExerciseFor(
+	ctx context.Context,
+	discipleID string,
+	days int,
+	metric, tz string,
+	includeCatalog bool,
+) (*PivotResponse, error) {
+	return s.GetPivotByExercise(ctx, discipleID, days, includeCatalog, metric, tz)
+}
+
+type Adherence struct{ DaysWithSets int }
+
+func (s *historyService) GetAdherence(ctx context.Context, discipleID string, days int, tz string) (Adherence, error) {
+	loc := normTZ(tz)
+	since := sinceFromDays(days) // UTC
+
+	// Reutiliza el repo existente
+	sessions, err := s.repo.ListRecentSessions(ctx, discipleID, since)
+	if err != nil {
+		return Adherence{}, err
+	}
+
+	seen := make(map[string]struct{})
+	for _, sess := range sessions {
+		// domain.SessionLog.performed_at debe existir; si el campo es otro, ajústalo
+		t := sess.PerformedAt.In(loc)
+		k := t.Format("2006-01-02")
+		seen[k] = struct{}{}
+	}
+	return Adherence{DaysWithSets: len(seen)}, nil
 }
 
 func normMetric(metric string) string {

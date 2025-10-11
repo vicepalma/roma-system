@@ -1,0 +1,25 @@
+{
+    "schemes": [
+        "http"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "API para gestión de ejercicios, programas, sesiones y modo maestro.",
+        "title": "ROMA System API",
+        "contact": {
+            "name": "ROMA Dev Team",
+            "url": "https://github.com/vicepalma/roma-system"
+        },
+        "version": "0.1"
+    },
+    "basePath": "/",
+    "paths": {},
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Esquema: \"Bearer \u003ctoken\u003e\"",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}

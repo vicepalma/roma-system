@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/vicepalma/roma-system/backend/internal/domain"
@@ -30,6 +31,27 @@ type DailyMuscleVolume struct {
 	Reps          int     `json:"reps"`
 }
 
+type MeTodayDay struct {
+	ID       string
+	WeekID   string
+	DayIndex int
+	Notes    sql.NullString
+}
+
+type MeTodayPrescription struct {
+	ID            string
+	DayID         string
+	ExerciseID    string
+	Series        int
+	Reps          string
+	RestSec       sql.NullInt32
+	ToFailure     bool
+	Position      int
+	ExerciseName  string
+	PrimaryMuscle string
+	Equipment     sql.NullString
+}
+
 type HistoryRepository interface {
 	ListRecentSessions(ctx context.Context, discipleID string, since time.Time) ([]domain.SessionLog, error)
 	ListSetsInSessions(ctx context.Context, discipleID string, since time.Time) ([]domain.SetLog, error)
@@ -39,6 +61,8 @@ type HistoryRepository interface {
 	DailyVolumeByMuscle(ctx context.Context, discipleID string, sinceDate string, tz string) ([]DailyMuscleVolume, error)
 
 	ListRelevantExercisesForUser(ctx context.Context, discipleID string) ([]ExerciseCatalogItem, error)
+
+	ResolveToday(ctx context.Context, discipleID string, tz string) (*MeTodayDay, []MeTodayPrescription, error)
 }
 
 type historyRepository struct{ db *gorm.DB }
@@ -155,4 +179,75 @@ func (r *historyRepository) ListRelevantExercisesForUser(ctx context.Context, di
 		ORDER BY e.name ASC
 	`, discipleID).Scan(&rows).Error
 	return rows, err
+}
+
+func (r *historyRepository) ResolveToday(ctx context.Context, discipleID string, tz string) (*MeTodayDay, []MeTodayPrescription, error) {
+	// 1) assignment activo más reciente del discípulo a la fecha de hoy en TZ
+	const qAssign = `
+		SELECT a.id, a.program_id
+		FROM assignments a
+		WHERE a.disciple_id = $1
+		AND a.is_active = true
+		AND a.start_date <= (CURRENT_DATE AT TIME ZONE $2)
+		AND (a.end_date IS NULL OR a.end_date >= (CURRENT_DATE AT TIME ZONE $2))
+		ORDER BY a.created_at DESC
+		LIMIT 1;
+		`
+	var assignID, programID string
+	row := r.db.WithContext(ctx).Raw(qAssign, discipleID, tz).Row()
+	if err := row.Scan(&assignID, &programID); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil, sql.ErrNoRows
+		}
+		return nil, nil, err
+	}
+
+	// 2) MVP: tomar Week 1 / Day 1 del programa (si existe)
+	const qDay = `
+		SELECT d.id, d.week_id, d.day_index, d.notes
+		FROM program_days d
+		JOIN program_weeks w ON w.id = d.week_id
+		WHERE w.program_id = $1 AND w.week_index = 1 AND d.day_index = 1
+		ORDER BY d.day_index ASC, d.id ASC
+		LIMIT 1;
+		`
+	var day MeTodayDay
+	rowDay := r.db.WithContext(ctx).Raw(qDay, programID).Row()
+	if err := rowDay.Scan(&day.ID, &day.WeekID, &day.DayIndex, &day.Notes); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil, sql.ErrNoRows
+		}
+		return nil, nil, err
+	}
+
+	// 3) Prescriptions del día + datos de ejercicio
+	const qPresc = `
+		SELECT p.id, p.day_id, p.exercise_id, p.series, p.reps, p.rest_sec, p.to_failure, p.position,
+			e.name, e.primary_muscle, e.equipment
+		FROM prescriptions p
+		JOIN exercises e ON e.id = p.exercise_id
+		WHERE p.day_id = $1
+		ORDER BY p.position ASC, p.id ASC;
+		`
+	sqlRows, err := r.db.WithContext(ctx).Raw(qPresc, day.ID).Rows()
+	if err != nil {
+		return &day, nil, err
+	}
+	defer sqlRows.Close()
+
+	var out []MeTodayPrescription
+	for sqlRows.Next() {
+		var pr MeTodayPrescription
+		if err := sqlRows.Scan(
+			&pr.ID, &pr.DayID, &pr.ExerciseID, &pr.Series, &pr.Reps, &pr.RestSec, &pr.ToFailure, &pr.Position,
+			&pr.ExerciseName, &pr.PrimaryMuscle, &pr.Equipment,
+		); err != nil {
+			return &day, nil, err
+		}
+		out = append(out, pr)
+	}
+	if err := sqlRows.Err(); err != nil {
+		return &day, nil, err
+	}
+	return &day, out, nil
 }

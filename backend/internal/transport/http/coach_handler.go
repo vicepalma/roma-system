@@ -2,6 +2,8 @@ package http
 
 import (
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -28,6 +30,10 @@ func (h *CoachHandler) Register(r *gin.RouterGroup) {
 
 		grp.GET("/disciples", h.listDisciples)
 		grp.POST("/assignments", h.assignProgram)
+		grp.GET("/disciples/:id/overview",
+			security.RequireCoachOf(h.svc, "id"),
+			h.GetOverview,
+		)
 	}
 }
 
@@ -35,6 +41,18 @@ type createLinkReq struct {
 	DiscipleID string `json:"disciple_id"` // opcional para auto-vínculo
 	AutoAccept bool   `json:"auto_accept"` // opcional (para pruebas)
 }
+
+// @Summary Crear vínculo maestro-discípulo
+// @Description Crea invitación (o auto-vínculo si disciple_id vacío o igual al coach).
+// @Tags coach
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param body body struct{DiscipleID string `json:"disciple_id"`; AutoAccept bool `json:"auto_accept"`} true "Payload"
+// @Success 201 {object} domain.CoachLink
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Router /api/coach/links [post]
 
 func (h *CoachHandler) createLink(c *gin.Context) {
 	userID, _ := c.Get(security.CtxUserID)
@@ -78,6 +96,14 @@ func (h *CoachHandler) updateLink(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, link)
 }
+
+// @Summary Listar discípulos del coach
+// @Tags coach
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} map[string][]repository.DiscipleRow
+// @Failure 401 {object} map[string]string
+// @Router /api/coach/disciples [get]
 
 func (h *CoachHandler) listLinks(c *gin.Context) {
 	userID, _ := c.Get(security.CtxUserID)
@@ -129,4 +155,44 @@ func (h *CoachHandler) assignProgram(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, row)
+}
+
+// @Summary Overview del discípulo (hoy + pivot + adherencia)
+// @Description Requiere que el solicitante sea coach del discípulo.
+// @Tags coach
+// @Security BearerAuth
+// @Produce json
+// @Param id path string true "Disciple ID"
+// @Param days query int false "Días (por defecto 14)"
+// @Param metric query string false "volume|sets|reps (por defecto volume)"
+// @Param tz query string false "IANA TZ (por defecto America/Santiago)"
+// @Success 200 {object} struct{DiscipleID string `json:"disciple_id"`; MeToday interface{} `json:"me_today"`; Pivot service.PivotResponse `json:"pivot"`; Adherence struct{Days int `json:"days"`; DaysWithSets int `json:"days_with_sets"`; Rate float64 `json:"rate"`} `json:"adherence"`}
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /api/coach/disciples/{id}/overview [get]
+
+func (h *CoachHandler) GetOverview(c *gin.Context) {
+	discipleID := c.Param("id")
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "14"))
+	if days <= 0 {
+		days = 14
+	}
+	metric := c.DefaultQuery("metric", "volume")
+	tz := c.DefaultQuery("tz", "America/Santiago")
+
+	coachID := security.MustUserID(c) // <--- en vez de MustClaims
+	if coachID == "" {
+		return // ya abortó con 401
+	}
+
+	out, err := h.svc.GetOverview(c.Request.Context(), coachID, discipleID, days, metric, tz)
+	if err != nil {
+		if strings.Contains(err.Error(), "forbidden") {
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, out)
 }

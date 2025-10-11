@@ -1,0 +1,18 @@
+basePath: /
+info:
+  contact:
+    name: ROMA Dev Team
+    url: https://github.com/vicepalma/roma-system
+  description: API para gestión de ejercicios, programas, sesiones y modo maestro.
+  title: ROMA System API
+  version: "0.1"
+paths: {}
+schemes:
+- http
+securityDefinitions:
+  BearerAuth:
+    description: 'Esquema: "Bearer <token>"'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

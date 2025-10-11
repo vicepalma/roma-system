@@ -18,11 +18,31 @@ type CoachService interface {
 
 	ListDisciples(ctx context.Context, coachID string) ([]repository.DiscipleRow, error)
 	AssignProgram(ctx context.Context, coachID, discipleID, programID string, startDate time.Time) (*repository.AssignmentMinimal, error)
+
+	GetOverview(ctx context.Context, coachID, discipleID string, days int, metric, tz string) (*CoachOverview, error)
 }
 
-type coachService struct{ repo repository.CoachRepository }
+type coachService struct {
+	repo repository.CoachRepository
+	hist HistoryService
+}
 
-func NewCoachService(r repository.CoachRepository) CoachService { return &coachService{repo: r} }
+type CoachOverview struct {
+	DiscipleID string             `json:"disciple_id"`
+	MeToday    *MeTodayResponse   `json:"me_today"`
+	Pivot      *PivotResponse     `json:"pivot"`
+	Adherence  *AdherenceResponse `json:"adherence"`
+}
+
+type AdherenceResponse struct {
+	DaysRequested int     `json:"days"`
+	DaysWithSets  int     `json:"days_with_sets"`
+	Rate          float64 `json:"rate"`
+}
+
+func NewCoachService(repo repository.CoachRepository, hist HistoryService) CoachService {
+	return &coachService{repo: repo, hist: hist}
+}
 
 func (s *coachService) CreateLink(ctx context.Context, coachID, discipleID string, autoAccept bool) (*domain.CoachLink, error) {
 	if coachID == "" || discipleID == "" {
@@ -101,4 +121,40 @@ func (s *coachService) AssignProgram(ctx context.Context, coachID, discipleID, p
 		startDate = time.Now()
 	}
 	return s.repo.CreateAssignment(ctx, coachID, discipleID, programID, startDate)
+}
+
+func (s *coachService) GetOverview(ctx context.Context, coachID, discipleID string, days int, metric, tz string) (*CoachOverview, error) {
+	ok, err := s.repo.CanCoach(ctx, coachID, discipleID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, errors.New("forbidden: not a coach of disciple")
+	}
+
+	// Reutiliza tu HistoryService (asegúrate de tener estos wrappers)
+	me, err := s.hist.GetMeTodayFor(ctx, discipleID)
+	if err != nil && !errors.Is(err, ErrNoDay) {
+		return nil, err
+	}
+	pivot, err := s.hist.GetPivotByExerciseFor(ctx, discipleID, days, metric, tz, true)
+	if err != nil {
+		return nil, err
+	}
+
+	ad, err := s.hist.GetAdherence(ctx, discipleID, days, tz)
+	if err != nil {
+		return nil, err
+	}
+
+	return &CoachOverview{
+		DiscipleID: discipleID,
+		MeToday:    me,
+		Pivot:      pivot,
+		Adherence: &AdherenceResponse{
+			DaysRequested: days,
+			DaysWithSets:  ad.DaysWithSets,
+			Rate:          float64(ad.DaysWithSets) / float64(max(1, days)),
+		},
+	}, nil
 }

@@ -9,8 +9,10 @@ import (
 
 func RequireCoachOf(svc service.CoachService, param string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		claims := MustClaims(c) // tu helper actual
-		coachID := claims.Sub
+		coachID := MustUserID(c) // <- usa el userID del contexto
+		if coachID == "" {       // ya abortó con 401
+			return
+		}
 		discipleID := c.Param(param)
 
 		ok, err := svc.CanCoach(c.Request.Context(), coachID, discipleID)
