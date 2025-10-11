@@ -10,3 +10,5 @@ curl -s http://localhost:8080/api/exercises -H "Authorization: Bearer $ACCESS" |
 
 # 3) Día de hoy (si tienes assignment activo)
 curl -s http://localhost:8080/api/me/today -H "Authorization: Bearer $ACCESS" | jq
+
+openssl rand -base64 64
