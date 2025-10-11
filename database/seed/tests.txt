@@ -1,0 +1,12 @@
+# 1) Login (Roshi)
+ACCESS=$(curl -s -X POST http://localhost:8080/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"roshi@kamehouse.example","password":"secret123"}' | jq -r '.tokens.access')
+
+echo "$ACCESS" | head -c 20 && echo
+
+# 2) Ejercicios (debe responder items[])
+curl -s http://localhost:8080/api/exercises -H "Authorization: Bearer $ACCESS" | jq '.items | length'
+
+# 3) Día de hoy (si tienes assignment activo)
+curl -s http://localhost:8080/api/me/today -H "Authorization: Bearer $ACCESS" | jq

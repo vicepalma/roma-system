@@ -107,6 +107,9 @@ func main() {
 	histRepo := repository.NewHistoryRepository(db)
 	histSvc := service.NewHistoryService(histRepo)
 	histH := httpHandlers.NewHistoryHandler(histSvc)
+	coachRepo := repository.NewCoachRepository(db)
+	coachSvc := service.NewCoachService(coachRepo)
+	coachH := httpHandlers.NewCoachHandler(coachSvc)
 
 	// Handlers
 	authH := httpHandlers.NewAuthHandler(userRepo)
@@ -126,6 +129,7 @@ func main() {
 	progH.Register(api)
 	sessH.Register(api)
 	histH.Register(api)
+	coachH.Register(api)
 
 	// start async
 	go func() {
