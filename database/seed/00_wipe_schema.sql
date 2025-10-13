@@ -1,0 +1,6 @@
+BEGIN;
+DROP SCHEMA IF EXISTS public CASCADE;
+CREATE SCHEMA public;
+GRANT ALL ON SCHEMA public TO PUBLIC;
+COMMENT ON SCHEMA public IS 'standard public schema';
+COMMIT;
