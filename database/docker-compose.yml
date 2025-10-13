@@ -19,7 +19,6 @@ services:
       timeout: 3s
       retries: 10
 
-  # (opcional) migrador automático con golang-migrate
   migrator:
     image: migrate/migrate:4
     container_name: roma-migrator
@@ -28,7 +27,6 @@ services:
         condition: service_healthy
     volumes:
       - ./backend/migrations:/migrations
-    # OJO: si estás en Windows, cambia ${PWD} por la ruta del repo
     command: [
       "-path=/migrations",
       "-database=postgres://roma:roma@postgres:5432/roma?sslmode=disable",
@@ -37,6 +35,19 @@ services:
     restart: "no"
 
   backend:
+    container_name: roma-backend
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    env_file:
+      - ../backend/.env.docker
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
       interval: 10s

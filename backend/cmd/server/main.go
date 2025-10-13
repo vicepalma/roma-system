@@ -23,6 +23,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -95,6 +96,18 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.Default()
+	// CORS global, ANTES de las rutas y de cualquier middleware de auth
+	r.Use(cors.New(cors.Config{
+		AllowOrigins: []string{
+			"http://localhost:5173", // Vite dev
+			"http://127.0.0.1:5173", // por si el browser usa 127.0.0.1
+		},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true, // si planeas cookies; con Bearer no es necesario, pero no molesta
+		MaxAge:           12 * time.Hour,
+	}))
 	// después de crear r:
 	r.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	r.Use(middleware.RequestID(), middleware.AccessLog())
@@ -120,16 +133,16 @@ func main() {
 	progRepo := repository.NewProgramRepository(db)
 	progSvc := service.NewProgramService(progRepo)
 	progH := httpHandlers.NewProgramHandler(progSvc)
-	sessRepo := sr.NewSessionRepository(db)
-	sessSvc := ss.NewSessionService(sessRepo)
-	sessH := sh.NewSessionHandler(sessSvc)
 	histRepo := repository.NewHistoryRepository(db)
 	histSvc := service.NewHistoryService(histRepo)
 	histH := httpHandlers.NewHistoryHandler(histSvc)
 	coachRepo := repository.NewCoachRepository(db)
 	coachSvc := service.NewCoachService(coachRepo, histSvc)
 	coachH := httpHandlers.NewCoachHandler(coachSvc)
-	meH := httpHandlers.NewMeHandler(histSvc)
+	//meH := httpHandlers.NewMeHandler(histSvc)
+	sessRepo := sr.NewSessionRepository(db)
+	sessSvc := ss.NewSessionService(sessRepo, coachSvc)
+	sessH := sh.NewSessionHandler(sessSvc)
 	healthH := httpHandlers.NewHealthHandler(db)
 
 	// Handlers
@@ -147,14 +160,8 @@ func main() {
 
 	// Rutas protegidas
 	api := r.Group("/api", security.AuthRequired())
-	coach := api.Group("/coach")
-	{
-		coach.GET("/disciples/:id/today",
-			security.RequireCoachOf(coachSvc, "id"),
-			meH.GetTodayForDisciple,
-		)
-	}
 	healthH.Register(r)
+
 	exH.Register(api)
 	progH.Register(api)
 	sessH.Register(api)

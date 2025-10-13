@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"strings"
 	"time"
@@ -20,6 +21,8 @@ type CoachService interface {
 	AssignProgram(ctx context.Context, coachID, discipleID, programID string, startDate time.Time) (*repository.AssignmentMinimal, error)
 
 	GetOverview(ctx context.Context, coachID, discipleID string, days int, metric, tz string) (*CoachOverview, error)
+
+	ListAssignments(ctx context.Context, coachID string, discipleID *string, limit, offset int) ([]repository.AssignmentListRow, int64, error)
 }
 
 type coachService struct {
@@ -132,11 +135,14 @@ func (s *coachService) GetOverview(ctx context.Context, coachID, discipleID stri
 		return nil, errors.New("forbidden: not a coach of disciple")
 	}
 
-	// Reutiliza tu HistoryService (asegúrate de tener estos wrappers)
-	me, err := s.hist.GetMeTodayFor(ctx, discipleID)
-	if err != nil && !errors.Is(err, ErrNoDay) {
+	me, err := s.hist.GetMeTodayFor(ctx, discipleID, tz)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
+	if errors.Is(err, sql.ErrNoRows) {
+		me = nil
+	}
+
 	pivot, err := s.hist.GetPivotByExerciseFor(ctx, discipleID, days, metric, tz, true)
 	if err != nil {
 		return nil, err
@@ -157,4 +163,31 @@ func (s *coachService) GetOverview(ctx context.Context, coachID, discipleID stri
 			Rate:          float64(ad.DaysWithSets) / float64(max(1, days)),
 		},
 	}, nil
+}
+
+func (s *coachService) ListAssignments(ctx context.Context, coachID string, discipleID *string, limit, offset int) ([]repository.AssignmentListRow, int64, error) {
+	// Si piden filtrar por disciple_id, valida autorización explícita:
+	if discipleID != nil && *discipleID != "" {
+		ok, err := s.repo.CanCoach(ctx, coachID, *discipleID)
+		if err != nil {
+			return nil, 0, err
+		}
+		if !ok {
+			return nil, 0, errors.New("forbidden: not a coach of this disciple")
+		}
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	return s.repo.ListAssignmentsForCoach(ctx, coachID, discipleID, limit, offset)
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

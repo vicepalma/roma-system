@@ -12,9 +12,19 @@ import (
 	"github.com/vicepalma/roma-system/backend/internal/repository"
 )
 
+type LatestSessionInfo struct {
+	ID        string    `db:"id"`
+	StartedAt time.Time `db:"started_at"`
+	SetsCount int       `db:"sets_count"`
+}
+
 type MeTodayResponse struct {
-	Day           interface{}   `json:"day,omitempty"`
-	Prescriptions []interface{} `json:"prescriptions,omitempty"`
+	AssignmentID            string                           `json:"assignment_id,omitempty"`
+	Day                     *repository.MeTodayDay           `json:"day"`
+	Prescriptions           []repository.MeTodayPrescription `json:"prescriptions"`
+	CurrentSessionID        *string                          `json:"current_session_id,omitempty"`
+	CurrentSessionStartedAt *time.Time                       `json:"current_session_started_at,omitempty"`
+	CurrentSessionSetsCount *int                             `json:"current_session_sets_count,omitempty"`
 }
 
 type errorNoDay struct{}
@@ -62,7 +72,7 @@ type HistoryService interface {
 	GetPivotByExercise(ctx context.Context, discipleID string, days int, includeCatalog bool, metric string, tz string) (*PivotResponse, error)
 	GetPivotByMuscle(ctx context.Context, discipleID string, days int, metric string, tz string) (*PivotResponse, error)
 
-	GetMeTodayFor(ctx context.Context, discipleID string) (*MeTodayResponse, error)
+	GetMeTodayFor(ctx context.Context, discipleID string, tz string) (*MeTodayResponse, error)
 	GetPivotByExerciseFor(ctx context.Context, discipleID string, days int, metric, tz string, includeCatalog bool) (*PivotResponse, error)
 	GetAdherence(ctx context.Context, discipleID string, days int, tz string) (Adherence, error)
 }
@@ -334,46 +344,37 @@ func (s *historyService) GetPivotByMuscle(ctx context.Context, discipleID string
 	}, nil
 }
 
-func (s *historyService) GetMeTodayFor(ctx context.Context, discipleID string) (*MeTodayResponse, error) {
-	// Usa la TZ por defecto del sistema o setéala en .env (aquí asumimos America/Santiago)
-	const defaultTZ = "America/Santiago"
-
-	day, presc, err := s.repo.ResolveToday(ctx, discipleID, defaultTZ)
+func (s *historyService) GetMeTodayFor(ctx context.Context, discipleID string, tz string) (*MeTodayResponse, error) {
+	// 1) assignment activo + day + prescriptions
+	assignID, day, presc, err := s.repo.ResolveToday(ctx, discipleID, tz)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNoDay
+		if errors.Is(err, repository.ErrNoDay) {
+			// Devuelve shape vacío, pero como *respuesta* (sin error)
+			return &MeTodayResponse{
+				AssignmentID:  "",
+				Day:           nil,
+				Prescriptions: []repository.MeTodayPrescription{},
+			}, nil
 		}
 		return nil, err
 	}
 
-	// Adaptamos la forma al contrato MeTodayResponse (simple)
-	dayObj := map[string]any{
-		"id":        day.ID,
-		"week_id":   day.WeekID,
-		"day_index": day.DayIndex,
-		"notes":     stringOrNil(day.Notes),
-	}
-	pOut := make([]map[string]any, 0, len(presc))
-	for _, p := range presc {
-		pOut = append(pOut, map[string]any{
-			"id":             p.ID,
-			"day_id":         p.DayID,
-			"exercise_id":    p.ExerciseID,
-			"series":         p.Series,
-			"reps":           p.Reps,
-			"rest_sec":       intOrNil(p.RestSec),
-			"to_failure":     p.ToFailure,
-			"position":       p.Position,
-			"exercise_name":  p.ExerciseName,
-			"primary_muscle": p.PrimaryMuscle,
-			"equipment":      stringOrNil(p.Equipment),
-		})
+	out := &MeTodayResponse{
+		AssignmentID:  assignID,
+		Day:           day,
+		Prescriptions: presc,
 	}
 
-	return &MeTodayResponse{
-		Day:           dayObj,
-		Prescriptions: anySlice(pOut),
-	}, nil
+	// 2) sesión vigente (opcional)
+	if day != nil && assignID != "" {
+		if info, err := s.repo.LatestSessionForAssignmentDay(ctx, assignID, day.ID); err == nil && info != nil {
+			out.CurrentSessionID = &info.ID
+			out.CurrentSessionStartedAt = &info.StartedAt // time.Time -> *time.Time OK
+			out.CurrentSessionSetsCount = &info.SetsCount
+		}
+	}
+
+	return out, nil
 }
 
 func stringOrNil(ns sql.NullString) any {

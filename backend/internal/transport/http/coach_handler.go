@@ -17,7 +17,10 @@ type assignReq struct {
 	StartDate  string `json:"start_date"` // YYYY-MM-DD opcional
 }
 
-type CoachHandler struct{ svc service.CoachService }
+type CoachHandler struct {
+	svc  service.CoachService
+	hist service.HistoryService
+}
 
 func NewCoachHandler(s service.CoachService) *CoachHandler { return &CoachHandler{svc: s} }
 
@@ -29,7 +32,12 @@ func (h *CoachHandler) Register(r *gin.RouterGroup) {
 		grp.GET("/links", h.listLinks)
 
 		grp.GET("/disciples", h.listDisciples)
+		grp.GET("/disciples/:id/today",
+			security.RequireCoachOf(h.svc, "id"),
+			h.GetTodayForDisciple,
+		)
 		grp.POST("/assignments", h.assignProgram)
+		grp.GET("/assignments", h.listAssignments)
 		grp.GET("/disciples/:id/overview",
 			security.RequireCoachOf(h.svc, "id"),
 			h.GetOverview,
@@ -195,4 +203,72 @@ func (h *CoachHandler) GetOverview(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, out)
+}
+
+func (h *CoachHandler) listAssignments(c *gin.Context) {
+	userID, _ := c.Get(security.CtxUserID)
+	coachID := userID.(string)
+
+	discipleID := c.Query("disciple_id")
+	var disciplePtr *string
+	if discipleID != "" {
+		disciplePtr = &discipleID
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	items, total, err := h.svc.ListAssignments(c, coachID, disciplePtr, limit, offset)
+	if err != nil {
+		if strings.Contains(err.Error(), "forbidden") {
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "list_failed", "detail": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"items":  items,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
+}
+
+func (h *CoachHandler) GetTodayForDisciple(c *gin.Context) {
+	discipleID := c.Param("id")
+	tz := c.DefaultQuery("tz", "America/Santiago")
+
+	resp, err := h.hist.GetMeTodayFor(c.Request.Context(), discipleID, tz)
+	if err != nil {
+		// Si tu svc ya convierte ErrNoDay en respuesta vacía, no llegas aquí.
+		// Pero por seguridad, devuelve shape vacío en vez de 500:
+		if strings.Contains(err.Error(), "no_day") {
+			c.JSON(http.StatusOK, gin.H{
+				"assignment_id":              nil,
+				"day":                        nil,
+				"prescriptions":              []interface{}{},
+				"current_session_id":         nil,
+				"current_session_started_at": nil,
+				"current_session_sets_count": nil,
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "detail": err.Error()})
+		return
+	}
+
+	if resp == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"assignment_id":              nil,
+			"day":                        nil,
+			"prescriptions":              []interface{}{},
+			"current_session_id":         nil,
+			"current_session_started_at": nil,
+			"current_session_sets_count": nil,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
 }

@@ -3,11 +3,24 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/vicepalma/roma-system/backend/internal/domain"
 	"gorm.io/gorm"
 )
+
+type CurrentSessionInfo struct {
+	ID        string    `json:"id"`
+	StartedAt time.Time `json:"started_at"`
+	SetsCount int       `json:"sets_count"`
+}
+
+type LatestSessionInfo struct {
+	ID        string    `db:"id"`
+	StartedAt time.Time `db:"started_at"`
+	SetsCount int       `db:"sets_count"`
+}
 
 type ExerciseCatalogItem struct {
 	ID   string `json:"id"`
@@ -52,6 +65,8 @@ type MeTodayPrescription struct {
 	Equipment     sql.NullString
 }
 
+var ErrNoDay = errors.New("no_day")
+
 type HistoryRepository interface {
 	ListRecentSessions(ctx context.Context, discipleID string, since time.Time) ([]domain.SessionLog, error)
 	ListSetsInSessions(ctx context.Context, discipleID string, since time.Time) ([]domain.SetLog, error)
@@ -62,7 +77,10 @@ type HistoryRepository interface {
 
 	ListRelevantExercisesForUser(ctx context.Context, discipleID string) ([]ExerciseCatalogItem, error)
 
-	ResolveToday(ctx context.Context, discipleID string, tz string) (*MeTodayDay, []MeTodayPrescription, error)
+	ResolveToday(ctx context.Context, discipleID string, tz string) (assignmentID string, day *MeTodayDay, prescs []MeTodayPrescription, err error)
+
+	LatestSessionForAssignmentDay(ctx context.Context, assignmentID, dayID string) (*CurrentSessionInfo, error)
+	ActiveAssignmentForToday(ctx context.Context, discipleID, tz string) (string, error)
 }
 
 type historyRepository struct{ db *gorm.DB }
@@ -181,73 +199,118 @@ func (r *historyRepository) ListRelevantExercisesForUser(ctx context.Context, di
 	return rows, err
 }
 
-func (r *historyRepository) ResolveToday(ctx context.Context, discipleID string, tz string) (*MeTodayDay, []MeTodayPrescription, error) {
-	// 1) assignment activo más reciente del discípulo a la fecha de hoy en TZ
+func (r *historyRepository) ResolveToday(ctx context.Context, discipleID string, tz string) (string, *MeTodayDay, []MeTodayPrescription, error) {
+	// 1) assignment activo más reciente a fecha de HOY en TZ
 	const qAssign = `
-		SELECT a.id, a.program_id
-		FROM assignments a
-		WHERE a.disciple_id = $1
-		AND a.is_active = true
-		AND a.start_date <= (CURRENT_DATE AT TIME ZONE $2)
-		AND (a.end_date IS NULL OR a.end_date >= (CURRENT_DATE AT TIME ZONE $2))
-		ORDER BY a.created_at DESC
-		LIMIT 1;
-		`
+SELECT a.id, a.program_id
+FROM assignments a
+WHERE a.disciple_id = $1
+  AND a.is_active = true
+  AND a.start_date <= (CURRENT_DATE AT TIME ZONE $2)
+  AND (a.end_date IS NULL OR a.end_date >= (CURRENT_DATE AT TIME ZONE $2))
+ORDER BY a.created_at DESC
+LIMIT 1;
+`
 	var assignID, programID string
-	row := r.db.WithContext(ctx).Raw(qAssign, discipleID, tz).Row()
-	if err := row.Scan(&assignID, &programID); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil, sql.ErrNoRows
+	if err := r.db.WithContext(ctx).Raw(qAssign, discipleID, tz).Row().Scan(&assignID, &programID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil, nil, ErrNoDay
 		}
-		return nil, nil, err
+		return "", nil, nil, err
 	}
 
-	// 2) MVP: tomar Week 1 / Day 1 del programa (si existe)
+	// 2) (MVP) Week 1 / Day 1 del programa
 	const qDay = `
-		SELECT d.id, d.week_id, d.day_index, d.notes
-		FROM program_days d
-		JOIN program_weeks w ON w.id = d.week_id
-		WHERE w.program_id = $1 AND w.week_index = 1 AND d.day_index = 1
-		ORDER BY d.day_index ASC, d.id ASC
-		LIMIT 1;
-		`
+SELECT d.id, d.week_id, d.day_index, d.notes
+FROM program_days d
+JOIN program_weeks w ON w.id = d.week_id
+WHERE w.program_id = $1 AND w.week_index = 1 AND d.day_index = 1
+ORDER BY d.id ASC
+LIMIT 1;
+`
 	var day MeTodayDay
-	rowDay := r.db.WithContext(ctx).Raw(qDay, programID).Row()
-	if err := rowDay.Scan(&day.ID, &day.WeekID, &day.DayIndex, &day.Notes); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil, sql.ErrNoRows
+	if err := r.db.WithContext(ctx).Raw(qDay, programID).Row().Scan(&day.ID, &day.WeekID, &day.DayIndex, &day.Notes); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil, nil, ErrNoDay
 		}
-		return nil, nil, err
+		return "", nil, nil, err
 	}
 
-	// 3) Prescriptions del día + datos de ejercicio
+	// 3) Prescripciones + datos de ejercicio
 	const qPresc = `
-		SELECT p.id, p.day_id, p.exercise_id, p.series, p.reps, p.rest_sec, p.to_failure, p.position,
-			e.name, e.primary_muscle, e.equipment
-		FROM prescriptions p
-		JOIN exercises e ON e.id = p.exercise_id
-		WHERE p.day_id = $1
-		ORDER BY p.position ASC, p.id ASC;
-		`
-	sqlRows, err := r.db.WithContext(ctx).Raw(qPresc, day.ID).Rows()
+SELECT p.id, p.day_id, p.exercise_id, p.series, p.reps, p.rest_sec, p.to_failure, p.position,
+       e.name, e.primary_muscle, e.equipment
+FROM prescriptions p
+JOIN exercises e ON e.id = p.exercise_id
+WHERE p.day_id = $1
+ORDER BY p.position ASC, p.id ASC;
+`
+	rows, err := r.db.Raw(qPresc, day.ID).Rows()
 	if err != nil {
-		return &day, nil, err
+		return assignID, &day, nil, err
 	}
-	defer sqlRows.Close()
+	defer rows.Close()
 
-	var out []MeTodayPrescription
-	for sqlRows.Next() {
+	out := make([]MeTodayPrescription, 0, 8)
+	for rows.Next() {
 		var pr MeTodayPrescription
-		if err := sqlRows.Scan(
+		if err := rows.Scan(
 			&pr.ID, &pr.DayID, &pr.ExerciseID, &pr.Series, &pr.Reps, &pr.RestSec, &pr.ToFailure, &pr.Position,
 			&pr.ExerciseName, &pr.PrimaryMuscle, &pr.Equipment,
 		); err != nil {
-			return &day, nil, err
+			return assignID, &day, nil, err
 		}
 		out = append(out, pr)
 	}
-	if err := sqlRows.Err(); err != nil {
-		return &day, nil, err
+	if err := rows.Err(); err != nil {
+		return assignID, &day, nil, err
 	}
-	return &day, out, nil
+
+	return assignID, &day, out, nil
+}
+
+func (r *historyRepository) LatestSessionForAssignmentDay(ctx context.Context, assignmentID, dayID string) (*CurrentSessionInfo, error) {
+	const q = `
+		SELECT s.id,
+		       s.performed_at        AS started_at,
+		       COALESCE(cnt.c, 0)    AS sets_count
+		FROM session_logs s
+		LEFT JOIN (
+		  SELECT session_id, COUNT(*) AS c
+		  FROM set_logs
+		  GROUP BY session_id
+		) cnt ON cnt.session_id = s.id
+		WHERE s.assignment_id = ? AND s.day_id = ?
+		ORDER BY s.created_at DESC
+		LIMIT 1;
+	`
+	var res CurrentSessionInfo
+	tx := r.db.WithContext(ctx).Raw(q, assignmentID, dayID).Scan(&res)
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+	if tx.RowsAffected == 0 {
+		return nil, nil // no hay sesión vigente para ese (assignment_id, day_id)
+	}
+	return &res, nil
+}
+
+func (r *historyRepository) ActiveAssignmentForToday(ctx context.Context, discipleID, tz string) (string, error) {
+	const q = `
+SELECT a.id
+FROM assignments a
+WHERE a.disciple_id = ?
+  AND a.is_active = true
+  AND a.start_date <= (CURRENT_DATE AT TIME ZONE ?)
+  AND (a.end_date IS NULL OR a.end_date >= (CURRENT_DATE AT TIME ZONE ?))
+ORDER BY a.created_at DESC
+LIMIT 1;`
+	var id sql.NullString
+	if err := r.db.WithContext(ctx).Raw(q, discipleID, tz, tz).Scan(&id).Error; err != nil {
+		return "", err
+	}
+	if !id.Valid {
+		return "", sql.ErrNoRows
+	}
+	return id.String, nil
 }

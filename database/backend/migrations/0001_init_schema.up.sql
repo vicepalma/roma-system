@@ -104,16 +104,22 @@ CREATE INDEX idx_assign_disciple ON assignments(disciple_id);
 CREATE INDEX idx_assign_program  ON assignments(program_id);
 
 -- 5) Ejecución y logs
-CREATE TABLE session_logs (
+CREATE TABLE IF NOT EXISTS session_logs (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   assignment_id  UUID NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
   disciple_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   day_id         UUID NOT NULL REFERENCES program_days(id) ON DELETE RESTRICT,
   performed_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  notes          TEXT NULL
+  notes          TEXT NULL,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_sess_assign   ON session_logs(assignment_id);
-CREATE INDEX idx_sess_disciple ON session_logs(disciple_id);
+CREATE INDEX IF NOT EXISTS idx_sess_assign   ON session_logs(assignment_id);
+CREATE INDEX IF NOT EXISTS idx_sess_disciple ON session_logs(disciple_id);
+CREATE INDEX IF NOT EXISTS idx_session_by_assign_day_created
+  ON session_logs (assignment_id, day_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_session_by_assign_day_performed
+  ON session_logs (assignment_id, day_id, performed_at DESC);
 
 CREATE TABLE set_logs (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),

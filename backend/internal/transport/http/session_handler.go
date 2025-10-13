@@ -1,6 +1,8 @@
 package http
 
 import (
+	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -13,9 +15,10 @@ type SessionHandler struct{ svc service.SessionService }
 func NewSessionHandler(s service.SessionService) *SessionHandler { return &SessionHandler{svc: s} }
 
 func (h *SessionHandler) Register(r *gin.RouterGroup) {
-	r.POST("/sessions", h.start)                // crea sesión
-	r.GET("/sessions/:id", h.get)               // detalle + sets + cardio
-	r.POST("/sessions/:id/sets", h.addSet)      // agrega set
+	r.POST("/sessions", h.start)           // crea sesión
+	r.GET("/sessions/:id", h.get)          // detalle + sets + cardio
+	r.POST("/sessions/:id/sets", h.addSet) // agrega set
+	r.GET("/sessions/:id/sets", h.GetSets)
 	r.PATCH("/sessions/:id", h.update)          // notas/fecha
 	r.POST("/sessions/:id/cardio", h.addCardio) // agrega cardio
 }
@@ -137,4 +140,61 @@ func (h *SessionHandler) addCardio(c *gin.Context) {
 		return
 	}
 	c.JSON(201, seg)
+}
+
+func (h *SessionHandler) GetSets(c *gin.Context) {
+	// Auth: misma protección que POST /sessions/:id/sets
+	userID, _ := c.Get(security.CtxUserID)
+	actorID := userID.(string)
+
+	sessionID := c.Param("id")
+	if sessionID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request", "detail": "missing session id"})
+		return
+	}
+
+	var prescPtr *string
+	if v := c.Query("prescription_id"); v != "" {
+		prescPtr = &v
+	}
+
+	limit := 0
+	offset := 0
+	if v := c.Query("limit"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request", "detail": "invalid limit"})
+			return
+		}
+		limit = n
+	}
+	if v := c.Query("offset"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request", "detail": "invalid offset"})
+			return
+		}
+		offset = n
+	}
+
+	items, total, err := h.svc.ListSets(c.Request.Context(), actorID, sessionID, prescPtr, limit, offset)
+	if err != nil {
+		switch {
+		case err.Error() == "forbidden":
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		default:
+			// Si quieres distinguir 404, puedes mapear err == gorm.ErrRecordNotFound a 404.
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	// Respuesta
+	resp := gin.H{
+		"items":  items,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	}
+	c.JSON(http.StatusOK, resp)
 }

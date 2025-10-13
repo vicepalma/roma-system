@@ -16,6 +16,9 @@ type SessionRepository interface {
 	UpdateSession(ctx context.Context, id string, performedAt *time.Time, notes *string) error
 	AddCardio(ctx context.Context, seg *CardioSegment) error
 	ListCardio(ctx context.Context, sessionID string) ([]CardioSegment, error)
+
+	GetSessionByID(ctx context.Context, id string) (*domain.SessionLog, error)
+	ListSessionSets(ctx context.Context, sessionID string, prescriptionID *string, limit, offset int) ([]domain.SetLog, int64, error)
 }
 
 type sessionRepository struct{ db *gorm.DB }
@@ -77,4 +80,36 @@ func (r *sessionRepository) ListCardio(ctx context.Context, sessionID string) ([
 	var rows []CardioSegment
 	err := r.db.WithContext(ctx).Where("session_id = ?", sessionID).Order("id ASC").Find(&rows).Error
 	return rows, err
+}
+
+func (r *sessionRepository) GetSessionByID(ctx context.Context, id string) (*domain.SessionLog, error) {
+	var s domain.SessionLog
+	err := r.db.WithContext(ctx).First(&s, "id = ?", id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func (r *sessionRepository) ListSessionSets(ctx context.Context, sessionID string, prescriptionID *string, limit, offset int) ([]domain.SetLog, int64, error) {
+	q := r.db.WithContext(ctx).Model(&domain.SetLog{}).Where("session_id = ?", sessionID)
+	if prescriptionID != nil && *prescriptionID != "" {
+		q = q.Where("prescription_id = ?", *prescriptionID)
+	}
+
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	itemsQ := q.Order("set_index ASC").Order("id ASC")
+	if limit > 0 {
+		itemsQ = itemsQ.Limit(limit).Offset(offset)
+	}
+
+	var items []domain.SetLog
+	if err := itemsQ.Find(&items).Error; err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
 }

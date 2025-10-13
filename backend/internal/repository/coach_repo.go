@@ -26,6 +26,20 @@ type AssignmentMinimal struct {
 	CreatedAt      time.Time `json:"created_at"`
 }
 
+type AssignmentListRow struct {
+	ID             string     `json:"id"`
+	DiscipleID     string     `json:"disciple_id"`
+	DiscipleName   string     `json:"disciple_name"`
+	DiscipleEmail  string     `json:"disciple_email"`
+	ProgramID      string     `json:"program_id"`
+	ProgramTitle   string     `json:"program_title"`
+	ProgramVersion int        `json:"program_version"`
+	StartDate      time.Time  `json:"start_date"`
+	EndDate        *time.Time `json:"end_date,omitempty"`
+	IsActive       bool       `json:"is_active"`
+	CreatedAt      time.Time  `json:"created_at"`
+}
+
 type CoachRepository interface {
 	CreateLink(ctx context.Context, coachID, discipleID string, autoAccept bool) (*domain.CoachLink, error)
 	UpdateStatus(ctx context.Context, id, newStatus string, actorID string) (*domain.CoachLink, error)
@@ -34,6 +48,8 @@ type CoachRepository interface {
 
 	ListDisciples(ctx context.Context, coachID string) ([]DiscipleRow, error)
 	CreateAssignment(ctx context.Context, coachID, discipleID, programID string, startDate time.Time) (*AssignmentMinimal, error)
+
+	ListAssignmentsForCoach(ctx context.Context, coachID string, discipleID *string, limit, offset int) ([]AssignmentListRow, int64, error)
 }
 
 type coachRepository struct{ db *gorm.DB }
@@ -120,4 +136,69 @@ func (r *coachRepository) CreateAssignment(ctx context.Context, coachID, discipl
 		return nil, err
 	}
 	return &row, nil
+}
+
+func (r *coachRepository) ListAssignmentsForCoach(ctx context.Context, coachID string, discipleID *string, limit, offset int) ([]AssignmentListRow, int64, error) {
+	// Conjunto de discípulos que el coach puede ver: vínculos aceptados + self-coach
+	// Nota: incluimos self-coach con OR a.disciple_id = coachID
+	base := `
+SELECT 
+  a.id, a.disciple_id, u.name AS disciple_name, u.email AS disciple_email,
+  a.program_id, p.title AS program_title, a.program_version,
+  a.start_date, a.end_date, a.is_active, a.created_at
+FROM assignments a
+JOIN users u ON u.id = a.disciple_id
+JOIN programs p ON p.id = a.program_id
+WHERE (
+  a.disciple_id IN (
+    SELECT cl.disciple_id 
+    FROM coach_links cl
+    WHERE cl.coach_id = ? AND cl.status = 'accepted'
+  )
+  OR a.disciple_id = ?
+)
+`
+
+	args := []interface{}{coachID, coachID}
+
+	if discipleID != nil && *discipleID != "" {
+		base += ` AND a.disciple_id = ?`
+		args = append(args, *discipleID)
+	}
+
+	baseOrderLimit := ` ORDER BY a.created_at DESC`
+	if limit > 0 {
+		baseOrderLimit += ` LIMIT ? OFFSET ?`
+		args = append(args, limit, offset)
+	}
+
+	var rows []AssignmentListRow
+	if err := r.db.WithContext(ctx).Raw(base+baseOrderLimit, args...).Scan(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// total (sin limit/offset)
+	countSQL := `
+SELECT COUNT(*)
+FROM assignments a
+WHERE (
+  a.disciple_id IN (
+    SELECT cl.disciple_id 
+    FROM coach_links cl
+    WHERE cl.coach_id = ? AND cl.status = 'accepted'
+  )
+  OR a.disciple_id = ?
+)`
+	countArgs := []interface{}{coachID, coachID}
+	if discipleID != nil && *discipleID != "" {
+		countSQL += ` AND a.disciple_id = ?`
+		countArgs = append(countArgs, *discipleID)
+	}
+
+	var total int64
+	if err := r.db.WithContext(ctx).Raw(countSQL, countArgs...).Scan(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return rows, total, nil
 }

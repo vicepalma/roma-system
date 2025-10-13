@@ -1,6 +1,8 @@
 package http
 
 import (
+	"database/sql"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -14,16 +16,14 @@ func NewMeHandler(hist service.HistoryService) *MeHandler { return &MeHandler{hi
 
 // GET /api/me/today
 func (h *MeHandler) GetToday(c *gin.Context) {
-	userID := security.MustUserID(c)
-	if userID == "" {
-		return
-	}
+	userID, _ := c.Get(security.CtxUserID)
+	discipleID := userID.(string)
+	tz := c.DefaultQuery("tz", "America/Santiago")
 
-	out, err := h.hist.GetMeTodayFor(c, userID)
+	out, err := h.hist.GetMeTodayFor(c.Request.Context(), discipleID, tz)
 	if err != nil {
-		// ErrNoDay -> 404 semántico
-		if err.Error() == "no_day" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "no_day", "detail": "no program day for today"})
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "no_day", "detail": "no assignment/day for today"})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "detail": err.Error()})
@@ -34,13 +34,10 @@ func (h *MeHandler) GetToday(c *gin.Context) {
 
 func (h *MeHandler) GetTodayForDisciple(c *gin.Context) {
 	discipleID := c.Param("id")
+	tz := c.DefaultQuery("tz", "America/Santiago")
 
-	out, err := h.hist.GetMeTodayFor(c, discipleID)
+	out, err := h.hist.GetMeTodayFor(c.Request.Context(), discipleID, tz) // <-- usa HistoryService
 	if err != nil {
-		if err.Error() == "no_day" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "no_day"})
-			return
-		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "detail": err.Error()})
 		return
 	}
