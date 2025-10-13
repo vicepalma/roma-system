@@ -138,7 +138,7 @@ func main() {
 	histH := httpHandlers.NewHistoryHandler(histSvc)
 	coachRepo := repository.NewCoachRepository(db)
 	coachSvc := service.NewCoachService(coachRepo, histSvc)
-	coachH := httpHandlers.NewCoachHandler(coachSvc)
+	coachH := httpHandlers.NewCoachHandler(coachSvc, histSvc)
 	//meH := httpHandlers.NewMeHandler(histSvc)
 	sessRepo := sr.NewSessionRepository(db)
 	sessSvc := ss.NewSessionService(sessRepo, coachSvc)

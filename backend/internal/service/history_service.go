@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
-	"errors"
+	"log"
 	"sort"
 	"strings"
 	"time"
@@ -345,35 +345,31 @@ func (s *historyService) GetPivotByMuscle(ctx context.Context, discipleID string
 }
 
 func (s *historyService) GetMeTodayFor(ctx context.Context, discipleID string, tz string) (*MeTodayResponse, error) {
-	// 1) assignment activo + day + prescriptions
 	assignID, day, presc, err := s.repo.ResolveToday(ctx, discipleID, tz)
 	if err != nil {
-		if errors.Is(err, repository.ErrNoDay) {
-			// Devuelve shape vacío, pero como *respuesta* (sin error)
-			return &MeTodayResponse{
-				AssignmentID:  "",
-				Day:           nil,
-				Prescriptions: []repository.MeTodayPrescription{},
-			}, nil
-		}
+		// Propagamos ErrNoDay para que el handler devuelva 200 vacío
+		log.Printf("[GetMeTodayFor] ResolveToday err disciple=%s tz=%s -> %v", discipleID, tz, err)
 		return nil, err
 	}
+	log.Printf("[GetMeTodayFor] OK disciple=%s tz=%s assign=%s day_nil=%v presc=%d",
+		discipleID, tz, assignID, (day == nil), len(presc))
 
 	out := &MeTodayResponse{
 		AssignmentID:  assignID,
-		Day:           day,
+		Day:           day, // ojo: ya es *MeTodayDay en el repo, respeta el tipo
 		Prescriptions: presc,
 	}
 
-	// 2) sesión vigente (opcional)
 	if day != nil && assignID != "" {
-		if info, err := s.repo.LatestSessionForAssignmentDay(ctx, assignID, day.ID); err == nil && info != nil {
+		info, err := s.repo.LatestSessionForAssignmentDay(ctx, assignID, day.ID)
+		if err != nil {
+			log.Printf("[GetMeTodayFor] LatestSessionForAssignmentDay err assign=%s day=%s -> %v", assignID, day.ID, err)
+		} else if info != nil {
 			out.CurrentSessionID = &info.ID
-			out.CurrentSessionStartedAt = &info.StartedAt // time.Time -> *time.Time OK
+			out.CurrentSessionStartedAt = &info.StartedAt
 			out.CurrentSessionSetsCount = &info.SetsCount
 		}
 	}
-
 	return out, nil
 }
 

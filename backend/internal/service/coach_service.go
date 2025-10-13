@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"strings"
 	"time"
@@ -136,18 +135,14 @@ func (s *coachService) GetOverview(ctx context.Context, coachID, discipleID stri
 	}
 
 	me, err := s.hist.GetMeTodayFor(ctx, discipleID, tz)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil && !errors.Is(err, ErrNoDay) {
 		return nil, err
 	}
-	if errors.Is(err, sql.ErrNoRows) {
-		me = nil
-	}
-
+	// pivot y adherence deben poder devolver vacío sin error
 	pivot, err := s.hist.GetPivotByExerciseFor(ctx, discipleID, days, metric, tz, true)
 	if err != nil {
 		return nil, err
 	}
-
 	ad, err := s.hist.GetAdherence(ctx, discipleID, days, tz)
 	if err != nil {
 		return nil, err

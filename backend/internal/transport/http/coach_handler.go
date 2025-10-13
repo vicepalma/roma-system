@@ -1,12 +1,15 @@
 package http
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/vicepalma/roma-system/backend/internal/domain"
+	"github.com/vicepalma/roma-system/backend/internal/repository"
 	"github.com/vicepalma/roma-system/backend/internal/security"
 	"github.com/vicepalma/roma-system/backend/internal/service"
 )
@@ -22,7 +25,9 @@ type CoachHandler struct {
 	hist service.HistoryService
 }
 
-func NewCoachHandler(s service.CoachService) *CoachHandler { return &CoachHandler{svc: s} }
+func NewCoachHandler(svc service.CoachService, hist service.HistoryService) *CoachHandler {
+	return &CoachHandler{svc: svc, hist: hist}
+}
 
 func (h *CoachHandler) Register(r *gin.RouterGroup) {
 	grp := r.Group("/coach")
@@ -34,13 +39,13 @@ func (h *CoachHandler) Register(r *gin.RouterGroup) {
 		grp.GET("/disciples", h.listDisciples)
 		grp.GET("/disciples/:id/today",
 			security.RequireCoachOf(h.svc, "id"),
-			h.GetTodayForDisciple,
+			h.getTodayForDisciple,
 		)
 		grp.POST("/assignments", h.assignProgram)
 		grp.GET("/assignments", h.listAssignments)
 		grp.GET("/disciples/:id/overview",
 			security.RequireCoachOf(h.svc, "id"),
-			h.GetOverview,
+			h.getOverview,
 		)
 	}
 }
@@ -179,24 +184,43 @@ func (h *CoachHandler) assignProgram(c *gin.Context) {
 // @Failure 403 {object} map[string]string
 // @Router /api/coach/disciples/{id}/overview [get]
 
-func (h *CoachHandler) GetOverview(c *gin.Context) {
+func (h *CoachHandler) getOverview(c *gin.Context) {
 	discipleID := c.Param("id")
-	days, _ := strconv.Atoi(c.DefaultQuery("days", "14"))
-	if days <= 0 {
-		days = 14
-	}
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "7"))
 	metric := c.DefaultQuery("metric", "volume")
-	tz := c.DefaultQuery("tz", "America/Santiago")
-
-	coachID := security.MustUserID(c) // <--- en vez de MustClaims
-	if coachID == "" {
-		return // ya abortó con 401
+	tz := c.Query("tz")
+	if tz == "" {
+		tz = "UTC"
 	}
 
+	coachID := security.MustUserID(c)
 	out, err := h.svc.GetOverview(c.Request.Context(), coachID, discipleID, days, metric, tz)
 	if err != nil {
-		if strings.Contains(err.Error(), "forbidden") {
-			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		// Si adentro caímos por ErrNoDay, devolvé estructura vacía
+		if errors.Is(err, service.ErrNoDay) {
+			c.JSON(http.StatusOK, gin.H{
+				"disciple_id": discipleID,
+				"me_today": gin.H{
+					"assignment_id":              nil,
+					"day":                        nil,
+					"prescriptions":              []domain.Prescription{},
+					"current_session_id":         nil,
+					"current_session_started_at": nil,
+					"current_session_sets_count": 0,
+				},
+				"pivot": gin.H{
+					"mode":    "by_exercise",
+					"days":    days,
+					"columns": []string{"date"},
+					"rows":    []any{},
+					"catalog": []any{},
+				},
+				"adherence": gin.H{
+					"days":           days,
+					"days_with_sets": 0,
+					"rate":           0.0,
+				},
+			})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -236,19 +260,39 @@ func (h *CoachHandler) listAssignments(c *gin.Context) {
 	})
 }
 
-func (h *CoachHandler) GetTodayForDisciple(c *gin.Context) {
+func (h *CoachHandler) getTodayForDisciple(c *gin.Context) {
+	ctx := c.Request.Context()
 	discipleID := c.Param("id")
-	tz := c.DefaultQuery("tz", "America/Santiago")
 
-	resp, err := h.hist.GetMeTodayFor(c.Request.Context(), discipleID, tz)
+	// Autorización (como ya la tienes)
+	userID, _ := c.Get(security.CtxUserID)
+	coachID := userID.(string)
+
+	// Autorización: coach válido para ese discípulo
+	ok, err := h.svc.CanCoach(ctx, coachID, discipleID)
 	if err != nil {
-		// Si tu svc ya convierte ErrNoDay en respuesta vacía, no llegas aquí.
-		// Pero por seguridad, devuelve shape vacío en vez de 500:
-		if strings.Contains(err.Error(), "no_day") {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "detail": err.Error()})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+
+	// TZ
+	tz := c.Query("tz")
+	if tz == "" {
+		tz = "UTC"
+	}
+
+	me, err := h.hist.GetMeTodayFor(ctx, discipleID, tz)
+	if err != nil {
+		// Si no hay "hoy", devolvemos 200 con shape vacío (para que el front no caiga)
+		if errors.Is(err, service.ErrNoDay) || errors.Is(err, repository.ErrNoDay) {
 			c.JSON(http.StatusOK, gin.H{
 				"assignment_id":              nil,
 				"day":                        nil,
-				"prescriptions":              []interface{}{},
+				"prescriptions":              []repository.MeTodayPrescription{},
 				"current_session_id":         nil,
 				"current_session_started_at": nil,
 				"current_session_sets_count": nil,
@@ -259,16 +303,27 @@ func (h *CoachHandler) GetTodayForDisciple(c *gin.Context) {
 		return
 	}
 
-	if resp == nil {
-		c.JSON(http.StatusOK, gin.H{
-			"assignment_id":              nil,
-			"day":                        nil,
-			"prescriptions":              []interface{}{},
-			"current_session_id":         nil,
-			"current_session_started_at": nil,
-			"current_session_sets_count": nil,
-		})
-		return
+	// ¡OJO!: NO desreferenciar punteros ni llamar métodos sobre punteros opcionales.
+	// Pasamos todo tal cual; gin/json serializa `nil` como `null`.
+
+	// day: mantener puntero (null-safe)
+	var day any = nil
+	if me != nil && me.Day != nil {
+		day = me.Day
 	}
-	c.JSON(http.StatusOK, resp)
+
+	// prescripciones: lista vacía si viene nil
+	presc := []repository.MeTodayPrescription{}
+	if me != nil && me.Prescriptions != nil {
+		presc = me.Prescriptions
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"assignment_id":              me.AssignmentID,
+		"day":                        day,
+		"prescriptions":              presc,
+		"current_session_id":         me.CurrentSessionID,
+		"current_session_started_at": me.CurrentSessionStartedAt, // ← puntero tal cual (puede ser nil)
+		"current_session_sets_count": me.CurrentSessionSetsCount, // ← puntero tal cual (puede ser nil)
+	})
 }
