@@ -5,79 +5,99 @@ import (
 	"strings"
 
 	"github.com/lib/pq"
-	"github.com/vicepalma/roma-system/backend/internal/domain"
 	"gorm.io/gorm"
 )
 
+type Exercise struct {
+	ID            string         `gorm:"type:uuid;primaryKey" json:"id"`
+	Name          string         `gorm:"not null" json:"name"`
+	PrimaryMuscle string         `gorm:"not null" json:"primary_muscle"`
+	Equipment     *string        `json:"equipment"`                         // NULL permitido
+	Tags          pq.StringArray `gorm:"type:text[]" json:"tags,omitempty"` // default '{}' en BD
+	Notes         *string        `json:"notes,omitempty"`
+}
+
+type ExerciseFilter struct {
+	Query     string
+	Muscle    string
+	Equipment string
+	Limit     int
+	Offset    int
+}
+
 type ExerciseRepository interface {
-	Search(ctx context.Context, q string, tags []string, match string, limit, offset int) ([]domain.Exercise, int64, error)
+	Search(ctx context.Context, f ExerciseFilter) ([]Exercise, int64, error)
+	Create(ctx context.Context, e *Exercise) error
+	Get(ctx context.Context, id string) (*Exercise, error)
+	Update(ctx context.Context, id string, upd *Exercise) (*Exercise, error)
+	Delete(ctx context.Context, id string) error
 }
 
 type exerciseRepository struct{ db *gorm.DB }
 
-func NewExerciseRepository(db *gorm.DB) ExerciseRepository {
-	return &exerciseRepository{db: db}
-}
+func NewExerciseRepository(db *gorm.DB) ExerciseRepository { return &exerciseRepository{db: db} }
 
-func normalizeTags(tags []string) []string {
-	out := make([]string, 0, len(tags))
-	for _, t := range tags {
-		t = strings.TrimSpace(t)
-		if t != "" {
-			out = append(out, t)
-		}
+func (r *exerciseRepository) Search(ctx context.Context, f ExerciseFilter) ([]Exercise, int64, error) {
+	q := r.db.WithContext(ctx).Table("exercises")
+	if s := strings.TrimSpace(f.Query); s != "" {
+		ilike := "%" + strings.ToLower(s) + "%"
+		q = q.Where("lower(name) LIKE ? OR lower(primary_muscle) LIKE ? OR lower(equipment) LIKE ?", ilike, ilike, ilike)
 	}
-	return out
-}
-
-func applyFilters(db *gorm.DB, q string, tags []string, match string) *gorm.DB {
-	// Texto: name o primary_muscle
-	if q != "" {
-		like := "%" + q + "%"
-		db = db.Where(
-			"lower(name) LIKE lower(?) OR lower(primary_muscle) LIKE lower(?)",
-			like, like,
-		)
+	if s := strings.TrimSpace(f.Muscle); s != "" {
+		q = q.Where("lower(primary_muscle) = ?", strings.ToLower(s))
 	}
-
-	// Tags: any/all
-	tags = normalizeTags(tags)
-	if len(tags) > 0 {
-		arr := pq.StringArray(tags)
-		if strings.EqualFold(match, "all") {
-			// Contiene TODOS los tags
-			db = db.Where("tags @> ?::text[]", arr)
-		} else {
-			// Contiene ALGUNO de los tags (default)
-			db = db.Where("tags && ?::text[]", arr)
-		}
+	if s := strings.TrimSpace(f.Equipment); s != "" {
+		q = q.Where("lower(coalesce(equipment,'')) = ?", strings.ToLower(s))
 	}
-
-	return db
-}
-
-func (r *exerciseRepository) Search(ctx context.Context, q string, tags []string, match string, limit, offset int) ([]domain.Exercise, int64, error) {
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
-	if offset < 0 {
-		offset = 0
-	}
-
-	base := r.db.WithContext(ctx).Model(&domain.Exercise{})
-	base = applyFilters(base, q, tags, match)
-
-	// total
 	var total int64
-	if err := base.Count(&total).Error; err != nil {
+	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
+	if f.Limit > 0 {
+		q = q.Limit(f.Limit)
+	}
+	if f.Offset > 0 {
+		q = q.Offset(f.Offset)
+	}
+	q = q.Order("lower(name) ASC, id ASC")
 
-	// items
-	var rows []domain.Exercise
-	if err := base.Order("name ASC").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
+	var items []Exercise
+	if err := q.Find(&items).Error; err != nil {
 		return nil, 0, err
 	}
+	return items, total, nil
+}
 
-	return rows, total, nil
+func (r *exerciseRepository) Create(ctx context.Context, e *Exercise) error {
+	return r.db.WithContext(ctx).Create(e).Error
+}
+
+func (r *exerciseRepository) Get(ctx context.Context, id string) (*Exercise, error) {
+	var ex Exercise
+	if err := r.db.WithContext(ctx).First(&ex, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	return &ex, nil
+}
+
+func (r *exerciseRepository) Update(ctx context.Context, id string, upd *Exercise) (*Exercise, error) {
+	var ex Exercise
+	if err := r.db.WithContext(ctx).First(&ex, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	// Solo campos mutables
+	ex.Name = upd.Name
+	ex.PrimaryMuscle = upd.PrimaryMuscle
+	ex.Equipment = upd.Equipment
+	ex.Tags = upd.Tags
+	ex.Notes = upd.Notes
+
+	if err := r.db.WithContext(ctx).Save(&ex).Error; err != nil {
+		return nil, err
+	}
+	return &ex, nil
+}
+
+func (r *exerciseRepository) Delete(ctx context.Context, id string) error {
+	return r.db.WithContext(ctx).Delete(&Exercise{}, "id = ?", id).Error
 }
