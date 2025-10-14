@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"log"
 	"sort"
 	"strings"
@@ -75,6 +74,10 @@ type HistoryService interface {
 	GetMeTodayFor(ctx context.Context, discipleID string, tz string) (*MeTodayResponse, error)
 	GetPivotByExerciseFor(ctx context.Context, discipleID string, days int, metric, tz string, includeCatalog bool) (*PivotResponse, error)
 	GetAdherence(ctx context.Context, discipleID string, days int, tz string) (Adherence, error)
+
+	History(ctx context.Context, discipleID, tz, group string, from, to *time.Time, limit, offset int) (any, int64, error)
+	ListSessions(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) (any, int64, error)
+	PlanVsDone(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) (any, int64, error)
 }
 
 type HistoryResponse struct {
@@ -373,26 +376,6 @@ func (s *historyService) GetMeTodayFor(ctx context.Context, discipleID string, t
 	return out, nil
 }
 
-func stringOrNil(ns sql.NullString) any {
-	if ns.Valid {
-		return ns.String
-	}
-	return nil
-}
-func intOrNil(ni sql.NullInt32) any {
-	if ni.Valid {
-		return int(ni.Int32)
-	}
-	return nil
-}
-func anySlice[T any](in []T) []any {
-	out := make([]any, len(in))
-	for i := range in {
-		out[i] = in[i]
-	}
-	return out
-}
-
 func (s *historyService) GetPivotByExerciseFor(
 	ctx context.Context,
 	discipleID string,
@@ -423,6 +406,22 @@ func (s *historyService) GetAdherence(ctx context.Context, discipleID string, da
 		seen[k] = struct{}{}
 	}
 	return Adherence{DaysWithSets: len(seen)}, nil
+}
+
+func (s *historyService) History(ctx context.Context, discipleID, tz, group string, from, to *time.Time, limit, offset int) (any, int64, error) {
+	if group == "day" {
+		return s.repo.GetDaysAggregate(ctx, discipleID, tz, from, to, limit, offset)
+	}
+	// por defecto: session
+	return s.repo.GetSessionsHistory(ctx, discipleID, tz, from, to, limit, offset)
+}
+
+func (s *historyService) ListSessions(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) (any, int64, error) {
+	return s.repo.ListDiscipleSessions(ctx, discipleID, tz, from, to, limit, offset)
+}
+
+func (s *historyService) PlanVsDone(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) (any, int64, error) {
+	return s.repo.ListPlanVsDone(ctx, discipleID, tz, from, to, limit, offset)
 }
 
 func normMetric(metric string) string {

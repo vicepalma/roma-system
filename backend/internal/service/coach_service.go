@@ -10,6 +10,13 @@ import (
 	"github.com/vicepalma/roma-system/backend/internal/repository"
 )
 
+type CalendarDay struct {
+	Date  time.Time `json:"date"`
+	DayID string    `json:"day_id"`
+	Index int       `json:"day_index"`
+	Notes *string   `json:"notes,omitempty"`
+}
+
 type CoachService interface {
 	CreateLink(ctx context.Context, coachID, discipleID string, autoAccept bool) (*domain.CoachLink, error)
 	UpdateLinkStatus(ctx context.Context, id string, actorID string, action string) (*domain.CoachLink, error)
@@ -22,6 +29,9 @@ type CoachService interface {
 	GetOverview(ctx context.Context, coachID, discipleID string, days int, metric, tz string) (*CoachOverview, error)
 
 	ListAssignments(ctx context.Context, coachID string, discipleID *string, limit, offset int) ([]repository.AssignmentListRow, int64, error)
+
+	UpdateAssignment(ctx context.Context, id string, endDate *time.Time, isActive *bool) (*repository.AssignmentRow, error)
+	AssignmentCalendar(ctx context.Context, id string, from, to time.Time) ([]CalendarDay, error)
 }
 
 type coachService struct {
@@ -185,4 +195,78 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func (s *coachService) UpdateAssignment(ctx context.Context, id string, endDate *time.Time, isActive *bool) (*repository.AssignmentRow, error) {
+	if id == "" {
+		return nil, errors.New("id required")
+	}
+	patch := map[string]any{}
+	if endDate != nil {
+		patch["end_date"] = *endDate
+	}
+	if isActive != nil {
+		patch["is_active"] = *isActive
+	}
+	if len(patch) == 0 {
+		return nil, errors.New("nothing to update")
+	}
+	if err := s.repo.UpdateAssignment(ctx, id, patch); err != nil {
+		return nil, err
+	}
+	return s.repo.GetAssignmentByID(ctx, id)
+}
+
+// MVP: asigna los días del programa (week 1) en ciclo sobre el rango [from..to]
+func (s *coachService) AssignmentCalendar(ctx context.Context, id string, from, to time.Time) ([]CalendarDay, error) {
+	if to.Before(from) {
+		from, to = to, from
+	}
+	asg, err := s.repo.GetAssignmentByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	// Limitar por start/end del assignment
+	start := asg.StartDate
+	if start.After(from) {
+		from = start
+	}
+	if asg.EndDate != nil && asg.EndDate.Before(to) {
+		to = *asg.EndDate
+	}
+	if to.Before(from) {
+		return []CalendarDay{}, nil
+	}
+
+	days, err := s.repo.ListProgramDaysByProgramWeek(ctx, asg.ProgramID, 1)
+	if err != nil {
+		return nil, err
+	}
+	if len(days) == 0 {
+		return []CalendarDay{}, nil
+	}
+
+	// Construimos calendario cíclico
+	out := make([]CalendarDay, 0, 32)
+	// punto de arranque: desplazamiento desde start al "from"
+	diff := int(from.Sub(start).Hours() / 24) // días
+	idx := diff % len(days)
+	if idx < 0 {
+		idx += len(days)
+	}
+	cur := from
+
+	for !cur.After(to) {
+		d := days[idx]
+		out = append(out, CalendarDay{
+			Date:  cur,
+			DayID: d.ID,
+			Index: d.DayIndex,
+			Notes: d.Notes,
+		})
+		// siguiente día
+		cur = cur.AddDate(0, 0, 1)
+		idx = (idx + 1) % len(days)
+	}
+	return out, nil
 }

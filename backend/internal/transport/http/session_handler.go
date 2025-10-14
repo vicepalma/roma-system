@@ -19,7 +19,8 @@ func (h *SessionHandler) Register(r *gin.RouterGroup) {
 	r.GET("/sessions/:id", h.get)          // detalle + sets + cardio
 	r.POST("/sessions/:id/sets", h.addSet) // agrega set
 	r.GET("/sessions/:id/sets", h.GetSets)
-	r.PATCH("/sessions/:id", h.update)          // notas/fecha
+	r.DELETE("/sessions/:id/sets/:setId", h.deleteSet)
+	r.PATCH("/sessions/:id", h.patchSession)    // notas/fecha
 	r.POST("/sessions/:id/cardio", h.addCardio) // agrega cardio
 }
 
@@ -91,33 +92,6 @@ func (h *SessionHandler) addSet(c *gin.Context) {
 		return
 	}
 	c.JSON(201, row)
-}
-
-func (h *SessionHandler) update(c *gin.Context) {
-	id := c.Param("id")
-	type req struct {
-		PerformedAt *string `json:"performed_at"`
-		Notes       *string `json:"notes"`
-	}
-	var body req
-	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(400, gin.H{"error": "bad_request"})
-		return
-	}
-	var ts *time.Time
-	if body.PerformedAt != nil && *body.PerformedAt != "" {
-		t, err := time.Parse(time.RFC3339, *body.PerformedAt)
-		if err != nil {
-			c.JSON(400, gin.H{"error": "bad_datetime"})
-			return
-		}
-		ts = &t
-	}
-	if err := h.svc.Update(c, uid(c), id, ts, body.Notes); err != nil {
-		c.JSON(500, gin.H{"error": "db_error", "detail": err.Error()})
-		return
-	}
-	c.Status(204)
 }
 
 func (h *SessionHandler) addCardio(c *gin.Context) {
@@ -197,4 +171,55 @@ func (h *SessionHandler) GetSets(c *gin.Context) {
 		"offset": offset,
 	}
 	c.JSON(http.StatusOK, resp)
+}
+
+func (h *SessionHandler) deleteSet(c *gin.Context) {
+	_ = c.Param("id")
+	setID := c.Param("setId")
+	if err := h.svc.DeleteSet(c.Request.Context(), setID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot_delete"})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *SessionHandler) patchSession(c *gin.Context) {
+	id := c.Param("id")
+	var body struct {
+		PerformedAt *string `json:"performed_at"` // ISO8601
+		Notes       *string `json:"notes"`
+		Status      *string `json:"status"`   // open|closed
+		EndedAt     *string `json:"ended_at"` // ISO8601
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request"})
+		return
+	}
+
+	var tptr *time.Time
+	if body.PerformedAt != nil && *body.PerformedAt != "" {
+		t, err := time.Parse(time.RFC3339, *body.PerformedAt)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_performed_at"})
+			return
+		}
+		tptr = &t
+	}
+
+	var tend *time.Time
+	if body.EndedAt != nil && *body.EndedAt != "" {
+		t, err := time.Parse(time.RFC3339, *body.EndedAt)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_ended_at"})
+			return
+		}
+		tend = &t
+	}
+
+	out, err := h.svc.PatchSession(c.Request.Context(), id, tptr, body.Notes, body.Status, tend)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, out)
 }

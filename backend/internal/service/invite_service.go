@@ -8,12 +8,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/vicepalma/roma-system/backend/internal/repository"
+	"gorm.io/gorm"
 )
 
 type InviteService interface {
 	CreateInvite(ctx context.Context, coachID, email, name string, ttlHours int) (*InviteDTO, error)
 	AcceptInvite(ctx context.Context, code string, discipleID string) (*AcceptResult, error)
+}
+
+type InviteRepository interface {
+	Create(ctx context.Context, inv *Invitation) error
+	FindByCode(ctx context.Context, code string) (*Invitation, error)
+	MarkAccepted(ctx context.Context, id string, usedBy string, usedAt time.Time) error
 }
 
 type InviteDTO struct {
@@ -34,6 +42,21 @@ type inviteService struct {
 	coach   CoachService
 	baseURL string // ej: http://localhost:5173/invite/  (opcional)
 }
+
+type Invitation struct {
+	ID        string     `gorm:"type:uuid;primaryKey"`
+	Code      string     `gorm:"uniqueIndex;not null"`
+	CoachID   string     `gorm:"type:uuid;not null"`
+	Email     string     `gorm:"not null"`
+	Name      *string    `gorm:""`
+	Status    string     `gorm:"not null;default:'pending'"` // pending|accepted|expired|cancelled
+	ExpiresAt time.Time  `gorm:"not null"`
+	UsedBy    *string    `gorm:"type:uuid"`
+	UsedAt    *time.Time `gorm:""`
+	CreatedAt time.Time  `gorm:"autoCreateTime"`
+}
+
+type inviteRepository struct{ db *gorm.DB }
 
 func NewInviteService(inv repository.InviteRepository, coach CoachService, baseURL string) InviteService {
 	return &inviteService{inv: inv, coach: coach, baseURL: strings.TrimRight(baseURL, "/")}
@@ -114,4 +137,30 @@ func (s *inviteService) AcceptInvite(ctx context.Context, code string, discipleI
 		return nil, err
 	}
 	return &AcceptResult{LinkID: link.ID, Status: "accepted"}, nil
+}
+
+func (r *inviteRepository) Create(ctx context.Context, inv *Invitation) error {
+	if inv.ID == "" {
+		inv.ID = uuid.NewString()
+	}
+	return r.db.WithContext(ctx).Create(inv).Error
+}
+
+func (r *inviteRepository) FindByCode(ctx context.Context, code string) (*Invitation, error) {
+	var i Invitation
+	if err := r.db.WithContext(ctx).Where("code = ?", code).First(&i).Error; err != nil {
+		return nil, err
+	}
+	return &i, nil
+}
+
+func (r *inviteRepository) MarkAccepted(ctx context.Context, id string, usedBy string, usedAt time.Time) error {
+	return r.db.WithContext(ctx).
+		Model(&Invitation{}).
+		Where("id = ? AND status = 'pending' AND used_at IS NULL", id).
+		Updates(map[string]any{
+			"status":  "accepted",
+			"used_by": usedBy,
+			"used_at": usedAt,
+		}).Error
 }

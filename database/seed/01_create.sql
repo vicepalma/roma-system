@@ -114,7 +114,9 @@ CREATE TABLE IF NOT EXISTS session_logs (
   performed_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   notes          TEXT NULL,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  status         TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','closed')),
+  ended_at       TIMESTAMPTZ NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sess_assign   ON session_logs(assignment_id);
 CREATE INDEX IF NOT EXISTS idx_sess_disciple ON session_logs(disciple_id);
@@ -208,6 +210,22 @@ CREATE TABLE IF NOT EXISTS invitations (
 CREATE INDEX IF NOT EXISTS idx_invitations_coach  ON invitations(coach_id);
 CREATE INDEX IF NOT EXISTS idx_invitations_email  ON invitations(email);
 CREATE INDEX IF NOT EXISTS idx_invitations_status ON invitations(status);
+
+CREATE TABLE IF NOT EXISTS invite_codes (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code       TEXT NOT NULL UNIQUE,
+  coach_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email      TEXT NOT NULL,
+  name       TEXT NULL,
+  status     TEXT NOT NULL DEFAULT 'pending',
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_by    UUID NULL REFERENCES users(id) ON DELETE SET NULL,
+  used_at    TIMESTAMPTZ NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- si ya estás usando el nombre "invite_codes" en DB, mapea el modelo Invitation a esa tabla:
+-- en GORM usa: func (Invitation) TableName() string { return "invite_codes" }
 
 -- 11) Triggers (sin IF NOT EXISTS; usamos DO con pg_trigger)
 

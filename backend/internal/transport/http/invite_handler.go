@@ -16,7 +16,11 @@ type createInviteRequest struct {
 	TTLHours string `json:"ttl_hours"` // opcional, string para flexibilidad
 	BaseURL  string `json:"base_url"`  // opcional si quieres sobreescribir el baseURL del service
 }
-
+type createRequest struct {
+	Email    string  `json:"email" binding:"required,email"`
+	Name     *string `json:"name"`
+	TTLHours *int    `json:"ttl_hours"` // default 72
+}
 type InviteHandler struct {
 	svc service.InviteService
 }
@@ -26,11 +30,10 @@ func NewInviteHandler(s service.InviteService) *InviteHandler { return &InviteHa
 func (h *InviteHandler) Register(r *gin.RouterGroup) {
 	grp := r.Group("/coach")
 	{
-		// Crear invitación (requiere autenticación; opcionalmente podrías validar "rol coach")
 		grp.POST("/invitations", h.createInvite)
-
-		// Aceptar invitación (requiere autenticación; el "disciple" es el usuario actual)
 		grp.POST("/invitations/:code/accept", h.acceptInvite)
+		// grp.POST("/invitations", h.create)
+		// grp.POST("/invitations/:code/accept", h.accept)
 	}
 }
 
@@ -83,4 +86,46 @@ func (h *InviteHandler) acceptInvite(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, res)
+}
+
+func (h *InviteHandler) create(c *gin.Context) {
+	coachID := security.UserID(c)
+	if coachID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	var req createRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request", "detail": err.Error()})
+		return
+	}
+	ttl := 72
+	if req.TTLHours != nil && *req.TTLHours > 0 {
+		ttl = *req.TTLHours
+	}
+	name := ""
+	if req.Name != nil {
+		name = *req.Name
+	}
+	out, err := h.svc.CreateInvite(c.Request.Context(), coachID, req.Email, name, ttl)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, out)
+}
+
+func (h *InviteHandler) accept(c *gin.Context) {
+	discipleID := security.UserID(c)
+	if discipleID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	code := c.Param("code")
+	out, err := h.svc.AcceptInvite(c.Request.Context(), code, discipleID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, out)
 }

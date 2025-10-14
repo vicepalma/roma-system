@@ -20,6 +20,8 @@ type Invitation struct {
 	CreatedAt  time.Time `gorm:"not null;default:now()"`
 }
 
+func (Invitation) TableName() string { return "invite_codes" }
+
 type InviteRepository interface {
 	Create(ctx context.Context, inv *Invitation) error
 	FindByCode(ctx context.Context, code string) (*Invitation, error)

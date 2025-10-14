@@ -67,6 +67,39 @@ type MeTodayPrescription struct {
 
 var ErrNoDay = errors.New("no_day")
 
+type (
+	// Para /history?group=session
+	HistorySessionRow struct {
+		SessionID    string     `json:"session_id"`
+		AssignmentID string     `json:"assignment_id"`
+		DayID        string     `json:"day_id"`
+		PerformedAt  time.Time  `json:"performed_at"`
+		Status       string     `json:"status"`
+		EndedAt      *time.Time `json:"ended_at,omitempty"`
+		Sets         int        `json:"sets"`
+		Volume       float64    `json:"volume"`
+	}
+
+	// Para /history?group=day (agregado por día)
+	HistoryDayAgg struct {
+		DayDate  time.Time `json:"day_date"` // fecha (a medianoche TZ)
+		Sessions int       `json:"sessions"`
+		Sets     int       `json:"sets"`
+		Volume   float64   `json:"volume"`
+	}
+
+	// /disciples/:id/sessions (lista)
+	DiscipleSessionRow = HistorySessionRow
+
+	// /disciples/:id/days (planificado vs realizado)
+	PlanVsDoneRow struct {
+		DayDate     time.Time `json:"day_date"`
+		DayID       string    `json:"day_id"`
+		PlannedSets int       `json:"planned_sets"`
+		DoneSets    int       `json:"done_sets"`
+	}
+)
+
 type HistoryRepository interface {
 	ListRecentSessions(ctx context.Context, discipleID string, since time.Time) ([]domain.SessionLog, error)
 	ListSetsInSessions(ctx context.Context, discipleID string, since time.Time) ([]domain.SetLog, error)
@@ -81,6 +114,16 @@ type HistoryRepository interface {
 
 	LatestSessionForAssignmentDay(ctx context.Context, assignmentID, dayID string) (*CurrentSessionInfo, error)
 	ActiveAssignmentForToday(ctx context.Context, discipleID, tz string) (string, error)
+
+	// history (group=session|day)
+	GetSessionsHistory(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) ([]HistorySessionRow, int64, error)
+	GetDaysAggregate(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) ([]HistoryDayAgg, int64, error)
+
+	// /disciples/:id/sessions
+	ListDiscipleSessions(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) ([]DiscipleSessionRow, int64, error)
+
+	// /disciples/:id/days
+	ListPlanVsDone(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) ([]PlanVsDoneRow, int64, error)
 }
 
 type historyRepository struct{ db *gorm.DB }
@@ -313,4 +356,164 @@ LIMIT 1;`
 		return "", sql.ErrNoRows
 	}
 	return id.String, nil
+}
+
+// ========== helpers ==========
+func dateFloorTZ(col, tz string) string {
+	// devuelve: (DATE (col AT TIME ZONE 'tz'))
+	return "DATE((" + col + ") AT TIME ZONE '" + tz + "')"
+}
+
+// ========== /history?group=session ==========
+func (r *historyRepository) GetSessionsHistory(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) ([]HistorySessionRow, int64, error) {
+	where := "s.disciple_id = ?"
+	args := []any{discipleID}
+
+	if from != nil {
+		where += " AND " + dateFloorTZ("s.performed_at", tz) + " >= ?"
+		args = append(args, from.Format("2006-01-02"))
+	}
+	if to != nil {
+		where += " AND " + dateFloorTZ("s.performed_at", tz) + " <= ?"
+		args = append(args, to.Format("2006-01-02"))
+	}
+
+	countSQL := "SELECT COUNT(*) FROM session_logs s WHERE " + where
+	var total int64
+	if err := r.db.WithContext(ctx).Raw(countSQL, args...).Scan(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	sql := `
+SELECT
+  s.id          AS session_id,
+  s.assignment_id,
+  s.day_id,
+  s.performed_at,
+  s.status,
+  s.ended_at,
+  COALESCE(COUNT(sl.id),0)                         AS sets,
+  COALESCE(SUM(COALESCE(sl.weight,0) * sl.reps),0) AS volume
+FROM session_logs s
+LEFT JOIN set_logs sl ON sl.session_id = s.id
+WHERE ` + where + `
+GROUP BY s.id
+ORDER BY s.performed_at DESC, s.id DESC
+LIMIT ? OFFSET ?`
+	args2 := append(args, limit, offset)
+
+	var rows []HistorySessionRow
+	if err := r.db.WithContext(ctx).Raw(sql, args2...).Scan(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	return rows, total, nil
+}
+
+// ========== /history?group=day ==========
+func (r *historyRepository) GetDaysAggregate(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) ([]HistoryDayAgg, int64, error) {
+	dayExpr := dateFloorTZ("s.performed_at", tz)
+
+	where := "s.disciple_id = ?"
+	args := []any{discipleID}
+	if from != nil {
+		where += " AND " + dayExpr + " >= ?"
+		args = append(args, from.Format("2006-01-02"))
+	}
+	if to != nil {
+		where += " AND " + dayExpr + " <= ?"
+		args = append(args, to.Format("2006-01-02"))
+	}
+
+	countSQL := "SELECT COUNT(*) FROM (SELECT " + dayExpr + " AS d FROM session_logs s WHERE " + where + " GROUP BY d) t"
+	var total int64
+	if err := r.db.WithContext(ctx).Raw(countSQL, args...).Scan(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	sql := `
+SELECT
+  ` + dayExpr + `              AS day_date,
+  COUNT(DISTINCT s.id)         AS sessions,
+  COALESCE(COUNT(sl.id),0)     AS sets,
+  COALESCE(SUM(COALESCE(sl.weight,0) * sl.reps),0) AS volume
+FROM session_logs s
+LEFT JOIN set_logs sl ON sl.session_id = s.id
+WHERE ` + where + `
+GROUP BY day_date
+ORDER BY day_date DESC
+LIMIT ? OFFSET ?`
+	args2 := append(args, limit, offset)
+
+	var rows []HistoryDayAgg
+	if err := r.db.WithContext(ctx).Raw(sql, args2...).Scan(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	return rows, total, nil
+}
+
+// ========== /disciples/:id/sessions ==========
+func (r *historyRepository) ListDiscipleSessions(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) ([]DiscipleSessionRow, int64, error) {
+	return r.GetSessionsHistory(ctx, discipleID, tz, from, to, limit, offset)
+}
+
+// ========== /disciples/:id/days (plan vs done) ==========
+//
+// Aproximación: por cada día con sesiones (performed_at), calculamos:
+//   - planned_sets: SUM de series de prescriptions del day_id de esas sesiones
+//     (si hay varias sesiones mismo day_id y misma fecha, planned no se duplica por sesión)
+//   - done_sets: COUNT de set_logs de esas sesiones ese día
+func (r *historyRepository) ListPlanVsDone(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) ([]PlanVsDoneRow, int64, error) {
+	dayExpr := dateFloorTZ("s.performed_at", tz)
+
+	where := "s.disciple_id = ?"
+	args := []any{discipleID}
+	if from != nil {
+		where += " AND " + dayExpr + " >= ?"
+		args = append(args, from.Format("2006-01-02"))
+	}
+	if to != nil {
+		where += " AND " + dayExpr + " <= ?"
+		args = append(args, to.Format("2006-01-02"))
+	}
+
+	countSQL := "SELECT COUNT(*) FROM (SELECT " + dayExpr + " AS d, s.day_id FROM session_logs s WHERE " + where + " GROUP BY d, s.day_id) t"
+	var total int64
+	if err := r.db.WithContext(ctx).Raw(countSQL, args...).Scan(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	sql := `
+WITH base AS (
+  SELECT ` + dayExpr + ` AS day_date, s.day_id, s.id AS session_id
+  FROM session_logs s
+  WHERE ` + where + `
+),
+planned AS (
+  SELECT b.day_date, b.day_id, COALESCE(SUM(p.series),0) AS planned_sets
+  FROM base b
+  JOIN prescriptions p ON p.day_id = b.day_id
+  GROUP BY b.day_date, b.day_id
+),
+done AS (
+  SELECT b.day_date, b.day_id, COALESCE(COUNT(sl.id),0) AS done_sets
+  FROM base b
+  LEFT JOIN set_logs sl ON sl.session_id = b.session_id
+  GROUP BY b.day_date, b.day_id
+)
+SELECT
+  p.day_date,
+  p.day_id,
+  p.planned_sets,
+  d.done_sets
+FROM planned p
+JOIN done d ON d.day_date = p.day_date AND d.day_id = p.day_id
+ORDER BY p.day_date DESC
+LIMIT ? OFFSET ?`
+	args2 := append(args, limit, offset)
+
+	var rows []PlanVsDoneRow
+	if err := r.db.WithContext(ctx).Raw(sql, args2...).Scan(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	return rows, total, nil
 }

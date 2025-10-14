@@ -58,6 +58,8 @@ func (h *CoachHandler) Register(r *gin.RouterGroup) {
 			security.RequireCoachOf(h.svc, "id"),
 			h.getOverview,
 		)
+		grp.PATCH("/assignments/:id", h.patchAssignment)
+		grp.GET("/assignments/:id/calendar", h.assignmentCalendar)
 		// grp.POST("/invitations", security.RequireCoachOfSelf(h.svc), h.createInvite) // o AuthRequired si no tienes rol
 		// grp.POST("/invitations/:code/accept", security.AuthRequired(), h.acceptInvite)
 	}
@@ -336,87 +338,49 @@ func (h *CoachHandler) getTodayForDisciple(c *gin.Context) {
 	})
 }
 
-func (h *CoachHandler) createInvite(c *gin.Context) {
-	coachID := security.UserID(c)
-	if coachID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+func (h *CoachHandler) patchAssignment(c *gin.Context) {
+	id := c.Param("id")
+	var body struct {
+		EndDate  *string `json:"end_date"`  // "YYYY-MM-DD"
+		IsActive *bool   `json:"is_active"` // true/false
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request"})
 		return
 	}
-
-	var req createInviteReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request", "detail": err.Error()})
-		return
+	var endPtr *time.Time
+	if body.EndDate != nil && *body.EndDate != "" {
+		d, err := time.Parse("2006-01-02", *body.EndDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_end_date"})
+			return
+		}
+		endPtr = &d
 	}
-	ttl := 7 * 24 * time.Hour
-	if req.TTLh != nil && *req.TTLh > 0 {
-		ttl = time.Duration(*req.TTLh) * time.Hour
-	}
-
-	code, err := security.SignInvite(coachID, strings.ToLower(strings.TrimSpace(req.Email)), ttl)
+	asg, err := h.svc.UpdateAssignment(c.Request.Context(), id, endPtr, body.IsActive)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "invite_sign_error"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot_update"})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{
-		"code": code,
-		// opcional: podrías construir una URL del frontend como /accept?code=...
-	})
+	c.JSON(http.StatusOK, asg)
 }
 
-// acceptInvite: discípulo autenticado acepta el código y crea/actualiza coach_link -> accepted
-func (h *CoachHandler) acceptInvite(c *gin.Context) {
-	code := c.Param("code")
-	if code == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing_code"})
-		return
-	}
-	userID := security.UserID(c)
-	if userID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+func (h *CoachHandler) assignmentCalendar(c *gin.Context) {
+	id := c.Param("id")
+	fromStr := c.DefaultQuery("from", time.Now().Format("2006-01-02"))
+	toStr := c.DefaultQuery("to", time.Now().AddDate(0, 0, 13).Format("2006-01-02"))
+
+	from, err1 := time.Parse("2006-01-02", fromStr)
+	to, err2 := time.Parse("2006-01-02", toStr)
+	if err1 != nil || err2 != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_range"})
 		return
 	}
 
-	claims, err := security.ParseInvite(code)
+	items, err := h.svc.AssignmentCalendar(c.Request.Context(), id, from, to)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid_or_expired_code"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot_build_calendar"})
 		return
 	}
-
-	// Validación mínima: el usuario autenticado debe ser (o pertenecer al) email destinatario.
-	// Como no guardamos email en el contexto, lo recuperamos del repo.
-	u, err := h.users.FindByID(c.Request.Context(), userID)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "user_not_found"})
-		return
-	}
-	if !strings.EqualFold(u.Email, claims.DiscipleEmail) {
-		// si quieres flexibilizar, podrías permitir mismatch con confirmación adicional
-		c.JSON(http.StatusForbidden, gin.H{"error": "email_mismatch"})
-		return
-	}
-
-	// Creamos/actualizamos el vínculo a accepted
-	link, err := h.svc.CreateLink(c.Request.Context(), claims.CoachID, userID, true /*autoAccept*/)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "link_error", "detail": err.Error()})
-		return
-	}
-	// Si ya existía con otro estado, forzamos accepted
-	if link.Status != "accepted" {
-		updated, err := h.svc.UpdateLinkStatus(c.Request.Context(), link.ID, userID, "accept")
-		if err == nil && updated != nil {
-			link = updated
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"link": gin.H{
-			"id":          link.ID,
-			"coach_id":    link.CoachID,
-			"disciple_id": link.DiscipleID,
-			"status":      link.Status,
-			"created_at":  link.CreatedAt,
-		},
-	})
+	c.JSON(http.StatusOK, gin.H{"items": items, "from": fromStr, "to": toStr})
 }

@@ -136,7 +136,7 @@ func main() {
 
 	histRepo := repository.NewHistoryRepository(db)
 	histSvc := service.NewHistoryService(histRepo)
-	histH := httpHandlers.NewHistoryHandler(histSvc)
+	histH := httpHandlers.NewHistoryHandler(histSvc, "")
 
 	coachRepo := repository.NewCoachRepository(db)
 	coachSvc := service.NewCoachService(coachRepo, histSvc)
@@ -149,7 +149,7 @@ func main() {
 	healthH := httpHandlers.NewHealthHandler(db)
 
 	inviteRepo := repository.NewInviteRepository(db)
-	inviteSvc := service.NewInviteService(inviteRepo, coachSvc, "")
+	inviteSvc := service.NewInviteService(inviteRepo, coachSvc, os.Getenv("INVITES_BASE_URL"))
 	inviteH := httpHandlers.NewInviteHandler(inviteSvc)
 
 	// Handlers

@@ -40,6 +40,25 @@ type AssignmentListRow struct {
 	CreatedAt      time.Time  `json:"created_at"`
 }
 
+type AssignmentRow struct {
+	ID             string    `gorm:"type:uuid;primaryKey"`
+	ProgramID      string    `gorm:"type:uuid;not null"`
+	ProgramVersion int       `gorm:"not null"`
+	DiscipleID     string    `gorm:"type:uuid;not null"`
+	AssignedBy     string    `gorm:"type:uuid;not null"`
+	StartDate      time.Time `gorm:"type:date;not null"`
+	EndDate        *time.Time
+	IsActive       bool `gorm:"not null;default:true"`
+	CreatedAt      time.Time
+}
+
+type ProgramDayLite struct {
+	ID       string `gorm:"type:uuid;primaryKey"`
+	WeekID   string `gorm:"type:uuid;index"`
+	DayIndex int
+	Notes    *string
+}
+
 type CoachRepository interface {
 	CreateLink(ctx context.Context, coachID, discipleID string, autoAccept bool) (*domain.CoachLink, error)
 	UpdateStatus(ctx context.Context, id, newStatus string, actorID string) (*domain.CoachLink, error)
@@ -50,6 +69,10 @@ type CoachRepository interface {
 	CreateAssignment(ctx context.Context, coachID, discipleID, programID string, startDate time.Time) (*AssignmentMinimal, error)
 
 	ListAssignmentsForCoach(ctx context.Context, coachID string, discipleID *string, limit, offset int) ([]AssignmentListRow, int64, error)
+
+	GetAssignmentByID(ctx context.Context, id string) (*AssignmentRow, error)
+	UpdateAssignment(ctx context.Context, id string, patch map[string]any) error
+	ListProgramDaysByProgramWeek(ctx context.Context, programID string, weekIndex int) ([]ProgramDayLite, error)
 }
 
 type coachRepository struct{ db *gorm.DB }
@@ -201,4 +224,43 @@ WHERE (
 	}
 
 	return rows, total, nil
+}
+
+// GetAssignmentByID
+func (r *coachRepository) GetAssignmentByID(ctx context.Context, id string) (*AssignmentRow, error) {
+	var a AssignmentRow
+	if err := r.db.WithContext(ctx).
+		First(&a, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	return &a, nil
+}
+
+// UpdateAssignment
+func (r *coachRepository) UpdateAssignment(ctx context.Context, id string, patch map[string]any) error {
+	return r.db.WithContext(ctx).
+		Model(&AssignmentRow{}).
+		Where("id = ?", id).
+		Updates(patch).Error
+}
+
+// ListProgramDaysByProgramWeek (week_index=1 para el MVP)
+func (r *coachRepository) ListProgramDaysByProgramWeek(ctx context.Context, programID string, weekIndex int) ([]ProgramDayLite, error) {
+	type weekRow struct {
+		ID string
+	}
+	var w weekRow
+	if err := r.db.WithContext(ctx).
+		Raw(`SELECT id FROM program_weeks WHERE program_id = ? AND week_index = ? LIMIT 1`, programID, weekIndex).
+		Scan(&w).Error; err != nil {
+		return nil, err
+	}
+	var days []ProgramDayLite
+	if err := r.db.WithContext(ctx).
+		Raw(`SELECT id, week_id, day_index, notes
+		     FROM program_days WHERE week_id = ? ORDER BY day_index ASC, id ASC`, w.ID).
+		Scan(&days).Error; err != nil {
+		return nil, err
+	}
+	return days, nil
 }
