@@ -133,42 +133,47 @@ func main() {
 	progRepo := repository.NewProgramRepository(db)
 	progSvc := service.NewProgramService(progRepo)
 	progH := httpHandlers.NewProgramHandler(progSvc)
+
 	histRepo := repository.NewHistoryRepository(db)
 	histSvc := service.NewHistoryService(histRepo)
 	histH := httpHandlers.NewHistoryHandler(histSvc)
+
 	coachRepo := repository.NewCoachRepository(db)
 	coachSvc := service.NewCoachService(coachRepo, histSvc)
 	coachH := httpHandlers.NewCoachHandler(coachSvc, histSvc)
-	//meH := httpHandlers.NewMeHandler(histSvc)
+
 	sessRepo := sr.NewSessionRepository(db)
 	sessSvc := ss.NewSessionService(sessRepo, coachSvc)
 	sessH := sh.NewSessionHandler(sessSvc)
+
 	healthH := httpHandlers.NewHealthHandler(db)
 
 	// Handlers
-	authH := httpHandlers.NewAuthHandler(userRepo)
+	authH := httpHandlers.NewAuthHandler(userRepo, db)
 
-	// exercise service/handler ya lo tienes:
+	// Servicio ejercicios
 	svc := service.NewExerciseService(exRepo)
 	exH := httpHandlers.NewExerciseHandler(svc)
 
 	// Rutas públicas
 	r.GET("/ping", func(c *gin.Context) { c.JSON(200, gin.H{"message": "pong"}) })
 
-	pub := r.Group("/")
-	authH.Register(pub)
+	// Grupo público con limiter para /auth
+	pubAuth := r.Group("/", middleware.NewLimiter(3, 5, 5*time.Minute).Gin())
+	authH.Register(pubAuth) // /auth/* y /me (me se auto-protege dentro del handler)                                              // /auth/* y /me (ojo: /me ya internamente requiere AuthRequired)
+
+	// Health (elige una)
+	healthH.Register(r) // público
+	// healthH.Register(api) // protegido
 
 	// Rutas protegidas
 	api := r.Group("/api", security.AuthRequired())
-	healthH.Register(r)
-
 	exH.Register(api)
 	progH.Register(api)
 	sessH.Register(api)
 	histH.Register(api)
 	coachH.Register(api)
-	auth := r.Group("/auth")
-	auth.Use(middleware.NewLimiter(3, 5, 5*time.Minute).Gin())
+
 	// start async
 	go func() {
 		log.Printf("API escuchando en http://localhost:%s (env=%s)", port, env)
