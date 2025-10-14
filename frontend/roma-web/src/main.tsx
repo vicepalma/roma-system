@@ -15,9 +15,15 @@ import ErrorBoundary from './routes/ErrorBoundary'
 import NotFound from './pages/NotFound'
 
 import { ToastProvider } from '@/components/toast/ToastProvider'
-import AuthEvents from '@/components/auth/AuthEvents'
 import { useTheme } from './store/theme'
 import { queryClient } from './lib/query' // <-- defaults centralizados
+import Exercises from './pages/Exercises'
+import Programs from './pages/Programs'
+import ProgramDetail from './pages/ProgramDetail'
+
+import SessionView from './pages/SessionView'
+
+import History from './pages/History'
 
 const router = createBrowserRouter([
   {
@@ -50,6 +56,42 @@ const router = createBrowserRouter([
             <Assignments />
           </ProtectedRoute>
         ),
+      },
+      {
+        path: '/exercises',
+        element: (
+          <ProtectedRoute>
+            <Exercises />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: '/programs',
+        element: (
+          <ProtectedRoute>
+            <Programs />
+            </ProtectedRoute>
+        )
+      },
+      {
+        path: '/programs/:id',
+        element: (
+        <ProtectedRoute>
+          <ProgramDetail />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: '/sessions/:id',
+        element: (
+        <ProtectedRoute>
+          <SessionView />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: '/history',
+        element: <ProtectedRoute><History /></ProtectedRoute>
       },
       { path: '*', element: <NotFound /> }, // <-- al final por claridad
     ],

@@ -18,13 +18,13 @@ import Modal from '@/components/ui/Modal'
 import LogSetForm from '@/components/forms/LogSetForm'
 import TodaySets from '@/components/sessions/TodaySets'
 import { nextSetIndexForPrescription } from '@/lib/sets'
+import { useSessionStore } from '@/store/session'
 
-// ===== Helpers de formato =====
+// ===== Helpers =====
 function formatPercent(value: number, decimals = 1, locale = 'es-CL') {
   const v = value <= 1 ? value * 100 : value
   return new Intl.NumberFormat(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(v)
 }
-
 function formatAdherence(ov?: Overview, decimals = 1) {
   const a = ov?.adherence
   if (typeof a === 'number') return `${formatPercent(a, decimals)}%`
@@ -37,7 +37,7 @@ function formatAdherence(ov?: Overview, decimals = 1) {
   return '-'
 }
 
-// ===== Listado de prescripciones =====
+// ===== UI: lista de prescripciones =====
 function renderPrescriptions(list: Prescription[] | undefined, onLog: (p: Prescription) => void) {
   const rows = Array.isArray(list) ? list : []
   if (!rows.length) return <div className="text-gray-500">Sin sesiones para hoy</div>
@@ -75,10 +75,14 @@ export default function DiscipleDetail() {
   const { show } = useToast()
   const qc = useQueryClient()
 
-  // Sesión activa del día (se setea cuando registras el primer set)
+  // Store (selecciona setters UNA vez)
+  const setCurrentSessionId = useSessionStore(s => s.setCurrentSessionId)
+  const setCurrentDisciple = useSessionStore(s => s.setCurrentDisciple)
+
+  // Sesión activa local (para queries de sets)
   const [sessionId, setSessionId] = useState<string | null>(null)
 
-  // ===== Nombre del discípulo =====
+  // Nombre del discípulo
   const disciplesQ = useQuery({
     queryKey: ['coach', 'disciples'],
     queryFn: getCoachDisciples,
@@ -91,42 +95,56 @@ export default function DiscipleDetail() {
     return found?.name ?? id
   }, [location.state?.name, disciplesQ.data, id])
 
-  // ===== Datos principales =====
-  const overviewQ = useQuery({
-    queryKey: ['disciple', id, 'overview'],
-    queryFn: () => getDiscipleOverview(id),
-    enabled: !!id,
-  })
+  // Datos principales
   const todayQ = useQuery({
     queryKey: ['disciple', id, 'today'],
     queryFn: () => getDiscipleToday(id),
     enabled: !!id,
+    retry: 1,
+    retryDelay: 800,
   })
-
-  useEffect(() => {
-    if (overviewQ.isError) show({ type: 'error', message: 'Error al cargar overview' })
-  }, [overviewQ.isError, show])
-  useEffect(() => {
-    if (todayQ.isError) show({ type: 'error', message: 'Error al cargar datos de hoy' })
-  }, [todayQ.isError, show])
+  const overviewQ = useQuery({
+    queryKey: ['disciple', id, 'overview'],
+    queryFn: () => getDiscipleOverview(id),
+    enabled: !!id,
+    retry: 1,
+    retryDelay: 800,
+  })
+  useEffect(() => { if (overviewQ.isError) show({ type: 'error', message: 'Error al cargar overview' }) }, [overviewQ.isError, show])
+  useEffect(() => { if (todayQ.isError) show({ type: 'error', message: 'Error al cargar datos de hoy' }) }, [todayQ.isError, show])
 
   const ov = overviewQ.data
   const today = todayQ.data
 
-  // Si el backend provee current_session_id, úsalo para mostrar sets tras un reload
+  // Hidratar sessionId y store desde "today" si backend lo trae
   useEffect(() => {
-    const sid = today?.current_session_id
-    // Evita loops innecesarios
-    if (sid && sid !== sessionId) setSessionId(sid)
-    if (!sid && sessionId) setSessionId(null)
-  }, [today?.current_session_id]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!today) return
+
+    const sid =
+      (today as any).current_session_id ??
+      (today as any).session_id ??
+      (today as any).session?.id ??
+      null
+
+    // solo si cambió
+    setSessionId(prev => {
+      if (sid && sid !== prev) {
+        setCurrentSessionId(sid)
+        setCurrentDisciple(id ?? null, displayName ?? null)
+        return sid
+      }
+      if (!sid && prev) {
+        setCurrentSessionId(null)
+        return null
+      }
+      return prev
+    })
+  }, [today, id, displayName, setCurrentSessionId, setCurrentDisciple])
 
 
-  // ===== Rango del gráfico y total de preview =====
+  // Rango gráfico
   const [range, setRange] = useState(ov?.pivot?.days ?? 14)
-  useEffect(() => {
-    if (ov?.pivot?.days) setRange(ov.pivot.days)
-  }, [ov?.pivot?.days])
+  useEffect(() => { if (ov?.pivot?.days) setRange(ov.pivot.days) }, [ov?.pivot?.days])
 
   const chartPreviewTotal = useMemo(() => {
     const p = ov?.pivot
@@ -139,12 +157,12 @@ export default function DiscipleDetail() {
     }, 0)
   }, [ov?.pivot, range])
 
-  // ===== Modal para registrar set =====
+  // Modal set
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<Prescription | null>(null)
 
-  // Core: crea sesión si falta, lee sets actuales y calcula next set_index
-  async function handleSubmitSet(values: { reps: number; weight?: number | null; rpe?: number | null; notes?: string | null }) {
+  // Core de registro de set
+  const handleSubmitSet = async (values: { reps: number; weight?: number | null; rpe?: number | null; notes?: string | null }) => {
     if (!selected || !today?.day?.id || !today?.assignment_id) {
       show({ type: 'error', message: 'Faltan datos de sesión (assignment/day)' })
       return
@@ -159,10 +177,12 @@ export default function DiscipleDetail() {
       })
       sid = created.id
       setSessionId(sid)
+      setCurrentSessionId(sid)                          // << clave
+      setCurrentDisciple(id ?? null, displayName ?? null)
     }
 
-    // 2) Leer sets actuales y calcular siguiente índice para ESTA prescripción
-    const existing = await listSets(sid)
+    // 2) Calcular próximo índice para ESTA prescripción
+    const existing = await listSets(sid)        // si tienes filtro por prescription, usa listSets(sid, selected.id)
     const nextIdx = nextSetIndexForPrescription(existing, selected.id)
 
     // 3) Registrar set
@@ -176,36 +196,56 @@ export default function DiscipleDetail() {
     })
   }
 
-  // Mutation con toasts y refresh
   const mLog = useMutation({
     mutationFn: handleSubmitSet,
-    onSuccess: () => {
+    onSuccess: async () => {
       show({ type: 'success', message: 'Set registrado' })
-      qc.invalidateQueries({ queryKey: ['disciple', id, 'today'] })
-      if (sessionId) qc.invalidateQueries({ queryKey: ['session', sessionId, 'sets'] })
+      await qc.invalidateQueries({ queryKey: ['disciple', id, 'today'] })
+      if (sessionId) await qc.invalidateQueries({ queryKey: ['session', sessionId, 'sets'] })
       setOpen(false)
       setSelected(null)
     },
-    onError: () => {
-      show({ type: 'error', message: 'No se pudo registrar el set' })
-    },
+    onError: () => show({ type: 'error', message: 'No se pudo registrar el set' }),
   })
 
-  // Query para sets (solo si ya tenemos sessionId)
+  // Sets del día (si hay sessionId)
   const setsQ = useQuery({
     queryKey: ['session', sessionId, 'sets'],
     queryFn: () => listSets(sessionId as string),
     enabled: !!sessionId,
   })
 
-  // ===== Loading básico (evita parpadeos) =====
   const isLoadingAll = overviewQ.isLoading || todayQ.isLoading
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Discípulo: {displayName}</h2>
-        <NavLink to="/dashboard" className="text-sm text-blue-600 hover:underline">Volver</NavLink>
+        <div>
+          <h2 className="text-xl font-semibold">
+            Discípulo: {displayName}
+          </h2>
+          {today?.current_session_id && (
+            <div className="mt-1 text-xs text-gray-600 dark:text-neutral-300">
+              Sesión activa · sets: {today.current_session_sets_count ?? 0}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {today?.current_session_id ? (
+            <NavLink
+              to={`/sessions/${today.current_session_id}`}
+              className="text-sm rounded px-3 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-blue-600"
+            >
+              Ir a sesión
+            </NavLink>
+          ) : (
+            <span className="text-sm text-gray-500">Sin sesión activa</span>
+          )}
+          <NavLink to="/dashboard" className="text-sm text-blue-600 hover:underline">
+            Volver
+          </NavLink>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

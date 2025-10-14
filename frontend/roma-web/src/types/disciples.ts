@@ -47,13 +47,14 @@ export type Prescription = {
 
 
 export type Today = {
-  assignment_id?: string
+  assignment_id: string
   current_session_id?: string | null
+  current_session_sets_count?: number
+  current_session_started_at?: string
   day?: {
-    id: string
-    week_id: string
-    day_index: number
-    notes?: string
+    id?: string
+    day_index?: number
+    notes?: string | null
   }
   prescriptions?: Prescription[]
 }

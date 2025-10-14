@@ -28,7 +28,7 @@ export default function App() {
                 {theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}
               </Button>
               {isAuthenticated ? (
-                <Button variant="outline" onClick={() => { logout(); navigate('/auth/login') }}>
+                <Button variant="outline" onClick={() => { logout(); navigate('/auth/login'); }}>
                   Cerrar sesión
                 </Button>
               ) : (
