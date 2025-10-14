@@ -13,11 +13,9 @@ build/
 *.log
 .env
 .env.local
+**/.env
 .env.docker
 **/.env.docker
-.env.*
-**/.env
-**/.env.*
 
 # Database
 database/pgdata/
