@@ -32,6 +32,18 @@ export type SessionSet = {
   created_at?: string
 }
 
+export type LoggedSet = {
+  id: string
+  session_id: string
+  prescription_id: string
+  set_index: number
+  reps: number
+  weight?: number | null
+  rpe?: number | null
+  to_failure: boolean
+  created_at?: string | null
+}
+
 // Crear sesión para un assignment_id + day_id
 export async function startSession(args: {
   assignment_id: string
@@ -43,13 +55,11 @@ export async function startSession(args: {
   return data as SessionLog
 }
 
-// Listar sets de una sesión (probamos endpoint dedicado y fallback)
-export async function listSets(sessionId: string, prescriptionId?: string): Promise<SetLog[]> {
-  const { data } = await api.get(`/api/sessions/${sessionId}/sets`, {
-    params: { prescription_id: prescriptionId }
-  })
-  if (Array.isArray(data?.items)) return data.items as SetLog[]
-  if (Array.isArray(data)) return data as SetLog[]
+// GET /api/sessions/:id/sets -> { items: LoggedSet[], ... }
+export async function listSets(sessionId: string): Promise<LoggedSet[]> {
+  const { data } = await api.get(`/api/sessions/${sessionId}/sets`)
+  if (Array.isArray(data)) return data as LoggedSet[]
+  if (data && Array.isArray(data.items)) return data.items as LoggedSet[]
   return []
 }
 

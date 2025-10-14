@@ -1,8 +1,6 @@
-// src/components/layout/Sidebar.tsx
 import { NavLink } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { useSessionStore, useSessionHydrated } from '@/store/session'
-
 
 export default function Sidebar() {
   const hydrated = useSessionHydrated()
@@ -18,7 +16,6 @@ export default function Sidebar() {
       'dark:text-gray-200 dark:hover:bg-neutral-800'
     )
 
-  // Evita renderizar UI dependiente del store antes de hidratar
   if (!hydrated) {
     return (
       <aside className="hidden md:block w-60 shrink-0 border-r bg-white dark:bg-neutral-900 dark:border-neutral-800">

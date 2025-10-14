@@ -20,7 +20,7 @@ import TodaySets from '@/components/sessions/TodaySets'
 import { nextSetIndexForPrescription } from '@/lib/sets'
 import { useSessionStore } from '@/store/session'
 
-// ===== Helpers =====
+// ---------- Helpers ----------
 function formatPercent(value: number, decimals = 1, locale = 'es-CL') {
   const v = value <= 1 ? value * 100 : value
   return new Intl.NumberFormat(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(v)
@@ -37,7 +37,7 @@ function formatAdherence(ov?: Overview, decimals = 1) {
   return '-'
 }
 
-// ===== UI: lista de prescripciones =====
+// UI: lista de prescripciones
 function renderPrescriptions(list: Prescription[] | undefined, onLog: (p: Prescription) => void) {
   const rows = Array.isArray(list) ? list : []
   if (!rows.length) return <div className="text-gray-500">Sin sesiones para hoy</div>
@@ -69,20 +69,28 @@ function renderPrescriptions(list: Prescription[] | undefined, onLog: (p: Prescr
   )
 }
 
+// ---------- Referencias estables fuera del componente ----------
+const NOOP = () => {}
+
 export default function DiscipleDetail() {
   const { id = '' } = useParams()
   const location = useLocation() as { state?: { name?: string; email?: string } }
   const { show } = useToast()
   const qc = useQueryClient()
 
-  // Store (selecciona setters UNA vez)
+  // Store setters (no crean nuevas referencias en cada render)
   const setCurrentSessionId = useSessionStore(s => s.setCurrentSessionId)
   const setCurrentDisciple = useSessionStore(s => s.setCurrentDisciple)
+  // Si tu store aún no define setSessionForDisciple, usamos NOOP estable
+  const setSessionForDisciple = useMemo(
+    () => ((useSessionStore.getState() as any).setSessionForDisciple ?? NOOP),
+    []
+  )
 
-  // Sesión activa local (para queries de sets)
+  // Sesión activa local
   const [sessionId, setSessionId] = useState<string | null>(null)
 
-  // Nombre del discípulo
+  // Nombre del discípulo (cache o state de navegación)
   const disciplesQ = useQuery({
     queryKey: ['coach', 'disciples'],
     queryFn: getCoachDisciples,
@@ -115,34 +123,42 @@ export default function DiscipleDetail() {
 
   const ov = overviewQ.data
   const today = todayQ.data
+  const sidFromToday = today?.current_session_id ?? null
 
-  // Hidratar sessionId y store desde "today" si backend lo trae
+  // Sincroniza local + store con el current_session_id que viene del backend (efecto único)
   useEffect(() => {
-    if (!today) return
+    // siempre propaga el discípulo visible
+    setCurrentDisciple(id || null, displayName || null)
 
-    const sid =
-      (today as any).current_session_id ??
-      (today as any).session_id ??
-      (today as any).session?.id ??
-      null
+    if (sidFromToday && sidFromToday !== sessionId) {
+      setSessionId(sidFromToday)
+      setCurrentSessionId(sidFromToday)
+      try { setSessionForDisciple(id!, sidFromToday) } catch {}
 
-    // solo si cambió
-    setSessionId(prev => {
-      if (sid && sid !== prev) {
-        setCurrentSessionId(sid)
-        setCurrentDisciple(id ?? null, displayName ?? null)
-        return sid
-      }
-      if (!sid && prev) {
-        setCurrentSessionId(null)
-        return null
-      }
-      return prev
-    })
-  }, [today, id, displayName, setCurrentSessionId, setCurrentDisciple])
+      // Prefetch sets de la sesión activa para suavizar
+      qc.prefetchQuery({
+        queryKey: ['session', sidFromToday, 'sets'],
+        queryFn: () => listSets(sidFromToday),
+        staleTime: 30_000,
+      })
+    }
 
+    if (!sidFromToday && sessionId) {
+      setSessionId(null)
+      setCurrentSessionId(null)
+      try { setSessionForDisciple(id!, null) } catch {}
+    }
+    // Importante: NO dependas de sessionId para evitar loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sidFromToday, id, displayName])
 
-  // Rango gráfico
+  // SID efectivo: usa el local si existe, si no el del backend
+  const effectiveSid = useMemo(
+    () => sessionId ?? sidFromToday ?? null,
+    [sessionId, sidFromToday]
+  )
+
+  // Rango del gráfico
   const [range, setRange] = useState(ov?.pivot?.days ?? 14)
   useEffect(() => { if (ov?.pivot?.days) setRange(ov.pivot.days) }, [ov?.pivot?.days])
 
@@ -161,58 +177,59 @@ export default function DiscipleDetail() {
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<Prescription | null>(null)
 
-  // Core de registro de set
-  const handleSubmitSet = async (values: { reps: number; weight?: number | null; rpe?: number | null; notes?: string | null }) => {
-    if (!selected || !today?.day?.id || !today?.assignment_id) {
-      show({ type: 'error', message: 'Faltan datos de sesión (assignment/day)' })
-      return
-    }
-
-    // 1) Asegurar sesión
-    let sid = sessionId
-    if (!sid) {
-      const created = await startSession({
-        assignment_id: today.assignment_id,
-        day_id: today.day.id,
-      })
-      sid = created.id
-      setSessionId(sid)
-      setCurrentSessionId(sid)                          // << clave
-      setCurrentDisciple(id ?? null, displayName ?? null)
-    }
-
-    // 2) Calcular próximo índice para ESTA prescripción
-    const existing = await listSets(sid)        // si tienes filtro por prescription, usa listSets(sid, selected.id)
-    const nextIdx = nextSetIndexForPrescription(existing, selected.id)
-
-    // 3) Registrar set
-    await addSet(sid, {
-      prescription_id: selected.id,
-      set_index: nextIdx,
-      reps: values.reps,
-      weight: values.weight ?? null,
-      rpe: values.rpe ?? null,
-      to_failure: false,
-    })
-  }
-
+  // Mutación: asegura sesión, calcula next set_index y registra set
   const mLog = useMutation({
-    mutationFn: handleSubmitSet,
-    onSuccess: async () => {
+    mutationFn: async (vals: { reps: number; weight?: number | null; rpe?: number | null; notes?: string | null }) => {
+      if (!selected || !today?.day?.id || !today?.assignment_id) {
+        throw new Error('Faltan datos de sesión (assignment/day)')
+      }
+
+      // Asegura sesión
+      let sid = effectiveSid
+      if (!sid) {
+        const created = await startSession({
+          assignment_id: today.assignment_id,
+          day_id: today.day.id as string,
+        })
+        sid = created.id
+        setSessionId(sid)
+        setCurrentSessionId(sid)
+        setCurrentDisciple(id || null, displayName || null)
+        try { setSessionForDisciple(id!, sid) } catch {}
+      }
+
+      // Calcula índice leyendo los sets actuales de la sesión
+      const existing = await listSets(sid!)
+      const nextIdx = nextSetIndexForPrescription(existing, selected.id)
+
+      await addSet(sid!, {
+        prescription_id: selected.id,
+        set_index: nextIdx,
+        reps: vals.reps,
+        weight: vals.weight ?? null,
+        rpe: vals.rpe ?? null,
+        to_failure: false,
+      })
+
+      return { sid: sid! }
+    },
+    onSuccess: async ({ sid }) => {
       show({ type: 'success', message: 'Set registrado' })
       await qc.invalidateQueries({ queryKey: ['disciple', id, 'today'] })
-      if (sessionId) await qc.invalidateQueries({ queryKey: ['session', sessionId, 'sets'] })
+      await qc.invalidateQueries({ queryKey: ['session', sid, 'sets'] })
+      await qc.refetchQueries({ queryKey: ['session', sid, 'sets'] })
       setOpen(false)
       setSelected(null)
     },
     onError: () => show({ type: 'error', message: 'No se pudo registrar el set' }),
   })
 
-  // Sets del día (si hay sessionId)
+  // Sets del día (si hay sesión efectiva)
   const setsQ = useQuery({
-    queryKey: ['session', sessionId, 'sets'],
-    queryFn: () => listSets(sessionId as string),
-    enabled: !!sessionId,
+    queryKey: ['session', effectiveSid, 'sets'],
+    queryFn: () => listSets(effectiveSid as string),
+    enabled: !!effectiveSid,
+    staleTime: 15_000,
   })
 
   const isLoadingAll = overviewQ.isLoading || todayQ.isLoading
@@ -221,20 +238,18 @@ export default function DiscipleDetail() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold">
-            Discípulo: {displayName}
-          </h2>
-          {today?.current_session_id && (
+          <h2 className="text-xl font-semibold">Discípulo: {displayName}</h2>
+          {sidFromToday && (
             <div className="mt-1 text-xs text-gray-600 dark:text-neutral-300">
-              Sesión activa · sets: {today.current_session_sets_count ?? 0}
+              Sesión activa · sets: {today?.current_session_sets_count ?? 0}
             </div>
           )}
         </div>
 
         <div className="flex items-center gap-2">
-          {today?.current_session_id ? (
+          {sidFromToday ? (
             <NavLink
-              to={`/sessions/${today.current_session_id}`}
+              to={`/sessions/${sidFromToday}`}
               className="text-sm rounded px-3 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-blue-600"
             >
               Ir a sesión
@@ -291,13 +306,15 @@ export default function DiscipleDetail() {
             </div>
           )}
 
-          {sessionId && (
+          {effectiveSid && (
             <div className="mt-4">
               <div className="font-medium mb-1">Sets de hoy</div>
               {setsQ.isLoading && <div className="text-sm">Cargando sets…</div>}
               {setsQ.isError && <div className="text-sm text-red-600">No se pudieron cargar los sets</div>}
-              {Array.isArray(setsQ.data) && (
+              {Array.isArray(setsQ.data) && setsQ.data.length > 0 ? (
                 <TodaySets sets={setsQ.data} prescriptions={today?.prescriptions ?? []} />
+              ) : (
+                <div className="text-xs text-gray-500">Aún no hay sets en esta sesión</div>
               )}
             </div>
           )}
