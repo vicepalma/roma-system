@@ -13,6 +13,7 @@ build/
 *.log
 .env
 .env.local
+**/.env
 
 # Database
 database/pgdata/
