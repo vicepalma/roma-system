@@ -140,13 +140,17 @@ func main() {
 
 	coachRepo := repository.NewCoachRepository(db)
 	coachSvc := service.NewCoachService(coachRepo, histSvc)
-	coachH := httpHandlers.NewCoachHandler(coachSvc, histSvc)
+	coachH := httpHandlers.NewCoachHandler(coachSvc, histSvc, userRepo)
 
 	sessRepo := sr.NewSessionRepository(db)
 	sessSvc := ss.NewSessionService(sessRepo, coachSvc)
 	sessH := sh.NewSessionHandler(sessSvc)
 
 	healthH := httpHandlers.NewHealthHandler(db)
+
+	inviteRepo := repository.NewInviteRepository(db)
+	inviteSvc := service.NewInviteService(inviteRepo, coachSvc, "")
+	inviteH := httpHandlers.NewInviteHandler(inviteSvc)
 
 	// Handlers
 	authH := httpHandlers.NewAuthHandler(userRepo, db)
@@ -173,6 +177,7 @@ func main() {
 	sessH.Register(api)
 	histH.Register(api)
 	coachH.Register(api)
+	inviteH.Register(api)
 
 	// start async
 	go func() {

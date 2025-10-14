@@ -21,12 +21,23 @@ type assignReq struct {
 }
 
 type CoachHandler struct {
-	svc  service.CoachService
-	hist service.HistoryService
+	svc   service.CoachService
+	hist  service.HistoryService
+	users repository.UserRepository
 }
 
-func NewCoachHandler(svc service.CoachService, hist service.HistoryService) *CoachHandler {
-	return &CoachHandler{svc: svc, hist: hist}
+type createInviteReq struct {
+	Email string `json:"email" binding:"required,email"`
+	TTLh  *int   `json:"ttl_h"` // opcional, default 168h (7 días)
+}
+
+type createLinkReq struct {
+	DiscipleID string `json:"disciple_id"` // opcional para auto-vínculo
+	AutoAccept bool   `json:"auto_accept"` // opcional (para pruebas)
+}
+
+func NewCoachHandler(svc service.CoachService, hist service.HistoryService, u repository.UserRepository) *CoachHandler {
+	return &CoachHandler{svc: svc, hist: hist, users: u}
 }
 
 func (h *CoachHandler) Register(r *gin.RouterGroup) {
@@ -47,12 +58,9 @@ func (h *CoachHandler) Register(r *gin.RouterGroup) {
 			security.RequireCoachOf(h.svc, "id"),
 			h.getOverview,
 		)
+		// grp.POST("/invitations", security.RequireCoachOfSelf(h.svc), h.createInvite) // o AuthRequired si no tienes rol
+		// grp.POST("/invitations/:code/accept", security.AuthRequired(), h.acceptInvite)
 	}
-}
-
-type createLinkReq struct {
-	DiscipleID string `json:"disciple_id"` // opcional para auto-vínculo
-	AutoAccept bool   `json:"auto_accept"` // opcional (para pruebas)
 }
 
 // @Summary Crear vínculo maestro-discípulo
@@ -325,5 +333,90 @@ func (h *CoachHandler) getTodayForDisciple(c *gin.Context) {
 		"current_session_id":         me.CurrentSessionID,
 		"current_session_started_at": me.CurrentSessionStartedAt, // ← puntero tal cual (puede ser nil)
 		"current_session_sets_count": me.CurrentSessionSetsCount, // ← puntero tal cual (puede ser nil)
+	})
+}
+
+func (h *CoachHandler) createInvite(c *gin.Context) {
+	coachID := security.UserID(c)
+	if coachID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req createInviteReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request", "detail": err.Error()})
+		return
+	}
+	ttl := 7 * 24 * time.Hour
+	if req.TTLh != nil && *req.TTLh > 0 {
+		ttl = time.Duration(*req.TTLh) * time.Hour
+	}
+
+	code, err := security.SignInvite(coachID, strings.ToLower(strings.TrimSpace(req.Email)), ttl)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invite_sign_error"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"code": code,
+		// opcional: podrías construir una URL del frontend como /accept?code=...
+	})
+}
+
+// acceptInvite: discípulo autenticado acepta el código y crea/actualiza coach_link -> accepted
+func (h *CoachHandler) acceptInvite(c *gin.Context) {
+	code := c.Param("code")
+	if code == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing_code"})
+		return
+	}
+	userID := security.UserID(c)
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	claims, err := security.ParseInvite(code)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid_or_expired_code"})
+		return
+	}
+
+	// Validación mínima: el usuario autenticado debe ser (o pertenecer al) email destinatario.
+	// Como no guardamos email en el contexto, lo recuperamos del repo.
+	u, err := h.users.FindByID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user_not_found"})
+		return
+	}
+	if !strings.EqualFold(u.Email, claims.DiscipleEmail) {
+		// si quieres flexibilizar, podrías permitir mismatch con confirmación adicional
+		c.JSON(http.StatusForbidden, gin.H{"error": "email_mismatch"})
+		return
+	}
+
+	// Creamos/actualizamos el vínculo a accepted
+	link, err := h.svc.CreateLink(c.Request.Context(), claims.CoachID, userID, true /*autoAccept*/)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "link_error", "detail": err.Error()})
+		return
+	}
+	// Si ya existía con otro estado, forzamos accepted
+	if link.Status != "accepted" {
+		updated, err := h.svc.UpdateLinkStatus(c.Request.Context(), link.ID, userID, "accept")
+		if err == nil && updated != nil {
+			link = updated
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"link": gin.H{
+			"id":          link.ID,
+			"coach_id":    link.CoachID,
+			"disciple_id": link.DiscipleID,
+			"status":      link.Status,
+			"created_at":  link.CreatedAt,
+		},
 	})
 }

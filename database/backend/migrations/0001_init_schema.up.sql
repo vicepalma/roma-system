@@ -168,6 +168,23 @@ CREATE TABLE user_flags (
   level     TEXT NULL                              -- beginner|intermediate|advanced
 );
 
+CREATE TABLE IF NOT EXISTS invitations (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code         TEXT  NOT NULL UNIQUE,                -- código corto compartible
+  coach_id     UUID  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email        CITEXT NOT NULL,                      -- email del invitado
+  name         TEXT  NULL,                           -- nombre tentativo
+  status       TEXT  NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','revoked','expired')),
+  expires_at   TIMESTAMPTZ NOT NULL,
+  accepted_by  UUID  NULL REFERENCES users(id) ON DELETE SET NULL,
+  accepted_at  TIMESTAMPTZ NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_invitations_coach  ON invitations(coach_id);
+CREATE INDEX IF NOT EXISTS idx_invitations_email  ON invitations(email);
+CREATE INDEX IF NOT EXISTS idx_invitations_status ON invitations(status);
+
 -- 9) Triggers de updated_at
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
