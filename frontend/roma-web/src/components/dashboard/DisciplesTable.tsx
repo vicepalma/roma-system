@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
-import type { Disciple } from '@/types/coach'
+import type { CoachDisciple  } from '@/types/coach'
 
-export default function DisciplesTable({ data }: { data: Disciple[] }) {
+export default function DisciplesTable({ data }: { data: CoachDisciple[] }) {
   const navigate = useNavigate()
   const rows = Array.isArray(data) ? data : []
 
@@ -18,12 +18,10 @@ export default function DisciplesTable({ data }: { data: Disciple[] }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map(d => (
+          {rows.map((d: CoachDisciple) => (
             <tr key={d.id} className="border-t">
               <td className="px-4 py-2">{d.name}</td>
               <td className="px-4 py-2">{d.email || '-'}</td>
-              <td className="px-4 py-2">{d.status || '-'}</td>
-              <td className="px-4 py-2">{d.lastActivityAt ? new Date(d.lastActivityAt).toLocaleString() : '-'}</td>
               <td className="px-4 py-2 text-right">
                 <button
                   onClick={() =>

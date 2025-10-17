@@ -9,5 +9,5 @@ export async function getDiscipleOverview(id: string): Promise<Overview> {
 
 export async function getDiscipleToday(id: string): Promise<Today> {
   const { data } = await api.get(`/api/coach/disciples/${id}/today`)
-  return normalizeToday(data)
+  return normalizeToday(data) // devuelve Today con week_id incluido
 }

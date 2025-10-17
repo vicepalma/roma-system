@@ -1,11 +1,10 @@
 import { useMemo } from 'react'
-import type { LoggedSet } from '@/types/sessions'
-import type { Prescription } from '@/types/disciples'
+import type { SessionSet  } from '@/types/sessions'
 import { groupSetsByPrescription } from '@/lib/sets'
 
 type Props = {
-  sets: LoggedSet[]
-  prescriptions: Prescription[]
+  sets: SessionSet[]
+  prescriptions: { id: string; exercise_name: string }[]
 }
 
 export default function TodaySets({ sets, prescriptions }: Props) {
@@ -42,6 +41,13 @@ export default function TodaySets({ sets, prescriptions }: Props) {
           </div>
         </div>
       ))}
+          <ul className="space-y-1">
+      {sets.map(s => (
+        <li key={s.id} className="text-sm">
+          #{s.set_index} — {s.reps} reps {s.weight ? `@ ${s.weight}kg` : ''} {s.rpe ? `· RPE ${s.rpe}` : ''}{s.to_failure ? ' · a fallo' : ''}
+        </li>
+      ))}
+    </ul>
     </div>
   )
 }

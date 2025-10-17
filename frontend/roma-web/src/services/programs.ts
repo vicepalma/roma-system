@@ -1,38 +1,43 @@
 import api from '@/lib/axios'
-import type {
-  Program, CreateProgramInput, CreateProgramResponse,
-  CreateWeekInput, CreateDayInput, CreatePrescriptionInput
-} from '@/types/programs'
+
+export type Program = {
+  id: string
+  title: string
+  description?: string | null
+  version?: number
+}
+
+export type ProgramWeek = {
+  id: string
+  program_id: string
+  index: number
+  title?: string | null
+}
+
+export type ProgramDay = {
+  id: string
+  week_id: string
+  day_index: number
+  notes?: string | null
+}
+
+export type DayPrescription = {
+  id: string
+  day_id: string
+  exercise_id: string
+  exercise_name?: string
+  series: number
+  reps: string
+  rest_sec?: number | null
+  to_failure?: boolean
+  position: number
+  primary_muscle?: string
+  equipment?: string | null
+}
 
 export async function listPrograms(): Promise<Program[]> {
   const { data } = await api.get('/api/programs')
   return data?.items ?? data ?? []
-}
-export async function createProgram(input: CreateProgramInput) {
-  const { data } = await api.post('/api/programs', input)
-  return data as CreateProgramResponse
-}
-export async function addWeek(input: CreateWeekInput) {
-  const { data } = await api.post(`/api/programs/${input.program_id}/weeks`, { index: input.index })
-  return data
-}
-export async function addDay(input: CreateDayInput) {
-  const { data } = await api.post(`/api/weeks/${input.week_id}/days`, {
-    day_index: input.day_index,
-    notes: input.notes ?? null,
-  })
-  return data
-}
-export async function addPrescription(input: CreatePrescriptionInput) {
-  const { data } = await api.post(`/api/days/${input.day_id}/prescriptions`, {
-    exercise_id: input.exercise_id,
-    series: input.series,
-    reps: input.reps,
-    rest_sec: input.rest_sec ?? null,
-    to_failure: !!input.to_failure,
-    position: input.position ?? 1,
-  })
-  return data
 }
 
 // Listar detalle del programa con semanas y días
@@ -41,3 +46,77 @@ export async function getProgramDetail(id: string) {
   return data
 }
 
+// ---- Programs ----
+export async function listMyPrograms() {
+  const { data } = await api.get<{ items?: Program[] }>('/api/programs')
+  return data.items ?? []
+}
+export async function createProgram(payload: { title: string; description?: string | null }) {
+  const { data } = await api.post<Program>('/api/programs', payload)
+  return data
+}
+export async function getProgram(id: string) {
+  const { data } = await api.get<Program>(`/api/programs/${id}`)
+  return data
+}
+
+// ---- Weeks ----
+export async function listWeeks(programId: string) {
+  const { data } = await api.get<{ items?: ProgramWeek[] }>(`/api/programs/${programId}/weeks`)
+  return data.items ?? []
+}
+export async function addWeek(programId: string, payload: { index: number; title?: string | null }) {
+  const { data } = await api.post<ProgramWeek>(`/api/programs/${programId}/weeks`, payload)
+  return data
+}
+
+// ---- Days ----
+export async function listDays(programId: string, weekId: string) {
+  const { data } = await api.get<{ items?: ProgramDay[] }>(`/api/programs/${programId}/weeks/${weekId}/days`)
+  return data.items ?? []
+}
+export async function addDay(programId: string, weekId: string, payload: { day_index: number; notes?: string | null }) {
+  const { data } = await api.post<ProgramDay>(`/api/programs/${programId}/weeks/${weekId}/days`, payload)
+  return data
+}
+export async function updateDay(programId: string, weekId: string, dayId: string, patch: Partial<{ notes: string | null }>) {
+  const { data } = await api.put<ProgramDay>(`/api/programs/${programId}/weeks/${weekId}/days/${dayId}`, patch)
+  return data
+}
+export async function deleteDay(programId: string, weekId: string, dayId: string) {
+  await api.delete(`/api/programs/${programId}/weeks/${weekId}/days/${dayId}`)
+  return true
+}
+
+// ---- Prescriptions ----
+export async function listPrescriptions(dayId: string) {
+  const { data } = await api.get<{ items?: DayPrescription[] }>(`/api/programs/days/${dayId}/prescriptions`)
+  return data.items ?? []
+}
+export async function addPrescription(
+  dayId: string,
+  payload: {
+    exercise_id: string
+    series: number
+    reps: string
+    rest_sec?: number | null
+    to_failure?: boolean
+    position: number
+  }
+) {
+  const { data } = await api.post<DayPrescription>(`/api/programs/days/${dayId}/prescriptions`, payload)
+  return data
+}
+export async function updatePrescription(id: string, patch: Partial<Omit<DayPrescription, 'id' | 'day_id'>>) {
+  const { data } = await api.put<DayPrescription>(`/api/programs/prescriptions/${id}`, patch)
+  return data
+}
+export async function deletePrescription(id: string) {
+  await api.delete(`/api/programs/prescriptions/${id}`)
+  return true
+}
+export async function reorderPrescriptions(payload: { day_id: string; order: string[] }) {
+  // order = array de prescription_id en el nuevo orden
+  await api.patch('/api/programs/prescriptions/reorder', payload)
+  return true
+}

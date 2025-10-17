@@ -1,13 +1,22 @@
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'
-import { pivotToChartData } from '@/lib/pivot'
+import { pivotToChartData, type Pivot as PivotLib } from '@/lib/pivot'
 import type { Overview } from '@/types/disciples'
 
-export default function OverviewVolumeChart({ overview }: { overview?: Overview }) {
-  const { data, seriesKeys } = pivotToChartData(overview?.pivot, overview?.pivot?.days ?? 14)
+type Props = { overview?: Overview }
 
-  if (!data.length || !seriesKeys.length) {
-    return <div className="text-sm text-gray-500">Sin datos suficientes para graficar</div>
-  }
+export default function OverviewVolumeChart({ overview }: Props) {
+  const p = overview?.pivot
+
+  const adapted: PivotLib | null = p
+    ? {
+        rows: p.data ?? [],
+        columns: p.series ?? [],
+      }
+    : null
+
+  const { data, seriesKeys } = adapted
+    ? pivotToChartData(adapted, p?.days ?? 14)
+    : { data: [], seriesKeys: [] }
 
   return (
     <div className="h-72 w-full">

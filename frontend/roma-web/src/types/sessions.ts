@@ -1,3 +1,4 @@
+// src/types/sessions.ts
 export type SessionLog = {
   id: string
   assignment_id: string
@@ -7,7 +8,7 @@ export type SessionLog = {
   notes?: string | null
 }
 
-export type SetLog = {
+export type SessionSet = {
   id: string
   session_id: string
   prescription_id: string
@@ -16,17 +17,9 @@ export type SetLog = {
   reps: number
   rpe?: number | null
   to_failure: boolean
+  created_at?: string
 }
 
-export type LoggedSet = {
-  id: string
-  session_id: string
-  prescription_id: string
-  set_index: number
-  reps: number
-  weight?: number | null
-  rpe?: number | null
-  to_failure: boolean
-  created_at?: string | null
-}
 
+// Compatibilidad con componentes que esperan LoggedSet
+export type LoggedSet = SessionSet

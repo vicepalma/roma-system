@@ -20,7 +20,7 @@ export default function ProgramDetail() {
   })
 
   const addWeekM = useMutation({
-    mutationFn: (v: { index: number }) => addWeek({ program_id: id, index: v.index }),
+    mutationFn: (v: { index: number }) => addWeek(id, { index: v.index }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['programs', id, 'detail'] }); show({ type: 'success', message: 'Semana creada' }) },
     onError: () => show({ type: 'error', message: 'No se pudo crear la semana' }),
   })
@@ -29,7 +29,7 @@ export default function ProgramDetail() {
   const addDayM = useMutation({
     mutationFn: (v: { day_index: number; notes?: string | null }) => {
       if (!selectedWeekId) throw new Error('Selecciona una semana')
-      return addDay({ week_id: selectedWeekId, day_index: v.day_index, notes: v.notes })
+      return addDay(id, selectedWeekId, { day_index: v.day_index, notes: v.notes })
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['programs', id, 'detail'] }); show({ type: 'success', message: 'Día creado' }) },
     onError: (e: any) => show({ type: 'error', message: e?.message || 'No se pudo crear el día' }),
@@ -39,7 +39,14 @@ export default function ProgramDetail() {
   const addPresM = useMutation({
     mutationFn: (v: any) => {
       if (!selectedDayId) throw new Error('Selecciona un día')
-      return addPrescription({ day_id: selectedDayId, ...v })
+      return addPrescription(selectedDayId, {
+  exercise_id: v.exercise_id,
+  series: v.series,
+  reps: v.reps,
+  rest_sec: v.rest_sec,
+  to_failure: v.to_failure,
+  position: v.position,
+})
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['programs', id, 'detail'] }); show({ type: 'success', message: 'Prescripción creada' }) },
     onError: (e: any) => show({ type: 'error', message: e?.message || 'No se pudo crear la prescripción' }),

@@ -39,7 +39,13 @@ api.interceptors.request.use((config) => {
 
 // --- Manejamos cola mientras se refresca ---
 let isRefreshing = false
-let queue: Array<{ resolve: (v: unknown) => void; reject: (r?: any) => void }> = []
+let queue: Array<{ resolve: (v: any) => void; reject: (r?: any) => void }> = []
+
+export function waitForTokenRefresh<T>(): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    queue.push({ resolve: resolve as any, reject })
+  })
+}
 
 function enqueue<T = unknown>() {
   return new Promise<T>((resolve, reject) => queue.push({ resolve, reject }))

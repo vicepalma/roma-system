@@ -1,6 +1,4 @@
-// src/lib/sets.ts
-import type { LoggedSet } from '@/types/sessions'
-
+import type { LoggedSet, SessionSet } from '@/types/sessions'
 export function groupSetsByPrescription(
   sets: LoggedSet[],
   nameByPrescriptionId: (pid: string) => string
@@ -23,9 +21,8 @@ export function groupSetsByPrescription(
   return groups
 }
 
-export function nextSetIndexForPrescription(all: LoggedSet[], prescriptionId: string) {
-  const max = all
+export function nextSetIndexForPrescription(existing: SessionSet[], prescriptionId: string): number {
+  return existing
     .filter(s => s.prescription_id === prescriptionId)
-    .reduce((m, s) => Math.max(m, s.set_index), 0)
-  return max + 1
+    .reduce((m, s) => Math.max(m, s.set_index), 0) + 1
 }

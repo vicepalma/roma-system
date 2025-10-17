@@ -1,66 +1,58 @@
-import { useForm } from 'react-hook-form'
+import { useForm, type SubmitHandler, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 
 const schema = z.object({
   reps: z.coerce.number().int().min(1).max(200),
-  weight: z.coerce.number().min(0).max(2000).optional().nullable(),
-  rpe: z.coerce.number().min(1).max(10).optional().nullable(),
-  notes: z.string().max(500).optional().nullable(),
+  weight: z.coerce.number().optional().nullable(),
+  rpe: z.coerce.number().min(0).max(10).optional().nullable(),
+  notes: z.string().optional().nullable(),
 })
-type Values = z.infer<typeof schema>
+export type Values = z.infer<typeof schema>
 
-export default function LogSetForm({
-  defaultValues,
-  onSubmit,
-  onCancel,
-}: {
+type Props = {
   defaultValues?: Partial<Values>
   onSubmit: (values: Values) => void | Promise<void>
   onCancel: () => void
-}) {
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Values>({
-    resolver: zodResolver(schema),
-    defaultValues: { reps: 10, weight: undefined, rpe: undefined, notes: '', ...defaultValues },
-  })
+}
+
+export default function LogSetForm({ defaultValues, onSubmit, onCancel }: Props) {
+      const { register, handleSubmit, formState: { isSubmitting, errors } } =
+    useForm<Values>({
+      resolver: zodResolver(schema) as unknown as Resolver<Values>,
+      defaultValues,
+    })
+
+const onValid: SubmitHandler<Values> = (values) => onSubmit(values)
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-      <div>
-        <label className="block text-sm mb-1">Reps</label>
-        <input type="number" {...register('reps')}
-          className="w-full rounded-md border px-3 py-2 bg-white dark:bg-neutral-900 dark:border-neutral-800" />
-        {errors.reps && <div className="text-xs text-red-600 mt-1">Reps inválidas</div>}
-      </div>
+    <form onSubmit={handleSubmit(onValid)} className="space-y-3">
+      <label className="text-sm block">
+        <div className="mb-1">Reps *</div>
+        <input type="number" min={1} {...register('reps', { valueAsNumber: true })} className="w-full border rounded px-2 py-1" />
+        {errors.reps && <div className="text-xs text-red-600">Repeticiones inválidas</div>}
+      </label>
+
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm mb-1">Peso (kg)</label>
-          <input type="number" step="0.5" {...register('weight')}
-            className="w-full rounded-md border px-3 py-2 bg-white dark:bg-neutral-900 dark:border-neutral-800" />
-          {errors.weight && <div className="text-xs text-red-600 mt-1">Peso inválido</div>}
-        </div>
-        <div>
-          <label className="block text-sm mb-1">RPE (1-10)</label>
-          <input type="number" step="0.5" {...register('rpe')}
-            className="w-full rounded-md border px-3 py-2 bg-white dark:bg-neutral-900 dark:border-neutral-800" />
-          {errors.rpe && <div className="text-xs text-red-600 mt-1">RPE inválido</div>}
-        </div>
-      </div>
-      <div>
-        <label className="block text-sm mb-1">Notas</label>
-        <textarea rows={3} {...register('notes')}
-          className="w-full rounded-md border px-3 py-2 bg-white dark:bg-neutral-900 dark:border-neutral-800" />
-        {errors.notes && <div className="text-xs text-red-600 mt-1">Notas demasiado largas</div>}
+        <label className="text-sm block">
+          <div className="mb-1">Peso</div>
+          <input type="number" step="0.5" {...register('weight', { setValueAs: v => (v === '' ? null : Number(v)) })} className="w-full border rounded px-2 py-1" />
+        </label>
+        <label className="text-sm block">
+          <div className="mb-1">RPE</div>
+          <input type="number" step="0.5" min={0} max={10} {...register('rpe', { setValueAs: v => (v === '' ? null : Number(v)) })} className="w-full border rounded px-2 py-1" />
+        </label>
       </div>
 
-      <div className="flex justify-end gap-2 pt-2">
-        <button type="button" onClick={onCancel}
-          className="rounded-md border px-3 py-1.5 text-sm bg-white dark:bg-neutral-900 dark:border-neutral-800">
+      <label className="text-sm block">
+        <div className="mb-1">Notas</div>
+        <textarea rows={2} {...register('notes')} className="w-full border rounded px-2 py-1" />
+      </label>
+
+      <div className="flex items-center gap-2">
+        <button type="submit" disabled={isSubmitting}>Guardar</button>
+        <button type="button" onClick={onCancel} className="text-sm text-gray-600 hover:underline">
           Cancelar
-        </button>
-        <button type="submit" disabled={isSubmitting}
-          className="rounded-md border px-3 py-1.5 text-sm bg-black text-white">
-          {isSubmitting ? 'Guardando…' : 'Guardar'}
         </button>
       </div>
     </form>

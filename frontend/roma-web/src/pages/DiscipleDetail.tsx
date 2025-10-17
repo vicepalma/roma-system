@@ -7,7 +7,8 @@ import { getDiscipleOverview, getDiscipleToday } from '@/services/disciples'
 import { getCoachDisciples } from '@/services/coach'
 import { startSession, addSet, listSets } from '@/services/sessions'
 
-import type { Overview, Prescription } from '@/types/disciples'
+import type { Overview  } from '@/types/disciples'
+import type { TodayPrescription } from '@/types/programs'
 import type { CoachDisciple } from '@/types/coach'
 
 import OverviewVolumeChart from '@/components/charts/OverviewVolumeChart'
@@ -38,7 +39,7 @@ function formatAdherence(ov?: Overview, decimals = 1) {
 }
 
 // UI: lista de prescripciones
-function renderPrescriptions(list: Prescription[] | undefined, onLog: (p: Prescription) => void) {
+function renderPrescriptions(list: TodayPrescription[] | undefined, onLog: (p: TodayPrescription) => void) {
   const rows = Array.isArray(list) ? list : []
   if (!rows.length) return <div className="text-gray-500">Sin sesiones para hoy</div>
   return (
@@ -49,10 +50,7 @@ function renderPrescriptions(list: Prescription[] | undefined, onLog: (p: Prescr
             <div className="font-medium">{p.exercise_name}</div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-500">{p.equipment ?? ''}</span>
-              <button
-                onClick={() => onLog(p)}
-                className="text-xs rounded border px-2 py-1 bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
-              >
+              <button onClick={() => onLog(p)} className="text-xs rounded border px-2 py-1 bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800">
                 Registrar set
               </button>
             </div>
@@ -70,7 +68,7 @@ function renderPrescriptions(list: Prescription[] | undefined, onLog: (p: Prescr
 }
 
 // ---------- Referencias estables fuera del componente ----------
-const NOOP = () => {}
+const NOOP = () => { }
 
 export default function DiscipleDetail() {
   const { id = '' } = useParams()
@@ -133,7 +131,7 @@ export default function DiscipleDetail() {
     if (sidFromToday && sidFromToday !== sessionId) {
       setSessionId(sidFromToday)
       setCurrentSessionId(sidFromToday)
-      try { setSessionForDisciple(id!, sidFromToday) } catch {}
+      try { setSessionForDisciple(id!, sidFromToday) } catch { /* empty */ }
 
       // Prefetch sets de la sesión activa para suavizar
       qc.prefetchQuery({
@@ -146,7 +144,7 @@ export default function DiscipleDetail() {
     if (!sidFromToday && sessionId) {
       setSessionId(null)
       setCurrentSessionId(null)
-      try { setSessionForDisciple(id!, null) } catch {}
+      try { setSessionForDisciple(id!, null) } catch { /* empty */ }
     }
     // Importante: NO dependas de sessionId para evitar loops
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -159,13 +157,16 @@ export default function DiscipleDetail() {
   )
 
   // Rango del gráfico
+
   const [range, setRange] = useState(ov?.pivot?.days ?? 14)
-  useEffect(() => { if (ov?.pivot?.days) setRange(ov.pivot.days) }, [ov?.pivot?.days])
+  useEffect(() => {
+    if (ov?.pivot?.days) setRange(ov.pivot.days)
+  }, [ov?.pivot?.days])
 
   const chartPreviewTotal = useMemo(() => {
     const p = ov?.pivot
-    if (!p) return 0
-    const { data } = pivotToChartData(p, range)
+    const adapted = p ? { rows: p.data ?? [], columns: p.series ?? [] } : null
+    const { data } = adapted ? pivotToChartData(adapted, range) : { data: [] }
     return data.reduce((acc, r) => {
       return acc + Object.entries(r)
         .filter(([k]) => k !== 'date')
@@ -175,7 +176,7 @@ export default function DiscipleDetail() {
 
   // Modal set
   const [open, setOpen] = useState(false)
-  const [selected, setSelected] = useState<Prescription | null>(null)
+  const [selected, setSelected] = useState<TodayPrescription | null>(null)
 
   // Mutación: asegura sesión, calcula next set_index y registra set
   const mLog = useMutation({
@@ -195,7 +196,7 @@ export default function DiscipleDetail() {
         setSessionId(sid)
         setCurrentSessionId(sid)
         setCurrentDisciple(id || null, displayName || null)
-        try { setSessionForDisciple(id!, sid) } catch {}
+        try { setSessionForDisciple(id!, sid) } catch { /* empty */ }
       }
 
       // Calcula índice leyendo los sets actuales de la sesión
@@ -329,7 +330,8 @@ export default function DiscipleDetail() {
         <LogSetForm
           defaultValues={{ reps: 10 }}
           onCancel={() => { if (!mLog.isPending) { setOpen(false); setSelected(null) } }}
-          onSubmit={(vals) => mLog.mutateAsync(vals)}
+          onSubmit={async (vals) => { await mLog.mutateAsync(vals) }}
+
         />
       </Modal>
     </div>

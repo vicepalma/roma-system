@@ -1,6 +1,7 @@
 import api from '@/lib/axios'
 import type { SearchExercisesResponse } from '@/types/exercises'
 
+
 export async function searchExercises(params?: {
   q?: string
   tags?: string[]
@@ -20,3 +21,9 @@ export async function searchExercises(params?: {
   })
   return data as SearchExercisesResponse
 }
+
+export const listExercises = (p?: any) => api.get('/api/exercises', { params: p }).then(r => r.data)
+export const getExercise = (id: string) => api.get(`/api/exercises/${id}`).then(r => r.data)
+export const createExercise = (b: any) => api.post('/api/exercises', b).then(r => r.data)
+export const updateExercise = (id: string, b: any) => api.put(`/api/exercises/${id}`, b).then(r => r.data)
+export const deleteExercise = (id: string) => api.delete(`/api/exercises/${id}`).then(r => r.data)
