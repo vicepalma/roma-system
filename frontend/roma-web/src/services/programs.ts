@@ -10,7 +10,7 @@ export type Program = {
 export type ProgramWeek = {
   id: string
   program_id: string
-  index: number
+  week_index: number
   title?: string | null
 }
 
@@ -61,13 +61,24 @@ export async function getProgram(id: string) {
 }
 
 // ---- Weeks ----
-export async function listWeeks(programId: string) {
-  const { data } = await api.get<{ items?: ProgramWeek[] }>(`/api/programs/${programId}/weeks`)
-  return data.items ?? []
+export async function listWeeks(programId: string): Promise<ProgramWeek[]> {
+  const { data } = await api.get(`/api/programs/${programId}/weeks`)
+  // asumiendo { items: [...] }
+  return (data.items ?? data ?? []).map((w: any) => ({
+    id: w.id ?? w.ID,
+    week_index: w.week_index ?? w.WeekIndex,
+    title: w.title ?? w.Title ?? null,
+  }))
 }
-export async function addWeek(programId: string, payload: { index: number; title?: string | null }) {
-  const { data } = await api.post<ProgramWeek>(`/api/programs/${programId}/weeks`, payload)
+
+export async function addWeek(programId: string, payload: { week_index: number; title?: string | null }) {
+  const { data } = await api.post(`/api/programs/${programId}/weeks`, payload)
   return data
+}
+export async function deleteWeek(programId: string, weekId: string): Promise<void> {
+  console.log(programId)
+  console.log(weekId)
+  await api.delete(`/api/programs/${programId}/weeks/${weekId}`)
 }
 
 // ---- Days ----
@@ -76,7 +87,7 @@ export async function listDays(programId: string, weekId: string) {
   return data.items ?? []
 }
 export async function addDay(programId: string, weekId: string, payload: { day_index: number; notes?: string | null }) {
-  const { data } = await api.post<ProgramDay>(`/api/programs/${programId}/weeks/${weekId}/days`, payload)
+  const { data } = await api.post(`/api/programs/${programId}/weeks/${weekId}/days`, payload)
   return data
 }
 export async function updateDay(programId: string, weekId: string, dayId: string, patch: Partial<{ notes: string | null }>) {
@@ -119,4 +130,8 @@ export async function reorderPrescriptions(payload: { day_id: string; order: str
   // order = array de prescription_id en el nuevo orden
   await api.patch('/api/programs/prescriptions/reorder', payload)
   return true
+}
+
+export async function deleteProgram(id: string): Promise<void> {
+  await api.delete(`/api/programs/${id}`)
 }

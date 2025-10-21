@@ -54,6 +54,7 @@ type ProgramService interface {
 	CreateProgram(ctx context.Context, ownerID, title string, notes *string) (*domain.Program, error)
 	ListMyPrograms(ctx context.Context, ownerID string, limit, offset int) ([]domain.Program, int64, error)
 	AddWeek(ctx context.Context, programID string, weekIndex int) (*domain.ProgramWeek, error)
+	DeleteWeek(ctx context.Context, programID, weekID string) error
 	AddDay(ctx context.Context, weekID string, dayIndex int, notes *string) (*domain.ProgramDay, error)
 	AddPrescription(ctx context.Context, p *domain.Prescription) (*domain.Prescription, error)
 	Assign(ctx context.Context, programID, discipleID, assignedBy string, start time.Time, end *time.Time) (*domain.Assignment, error)
@@ -103,6 +104,15 @@ func (s *programService) ListMyPrograms(ctx context.Context, ownerID string, lim
 func (s *programService) AddWeek(ctx context.Context, programID string, weekIndex int) (*domain.ProgramWeek, error) {
 	w := &domain.ProgramWeek{ProgramID: programID, WeekIndex: weekIndex}
 	return w, s.repo.AddWeek(ctx, w)
+}
+
+func (s *programService) DeleteWeek(ctx context.Context, programID, weekID string) error {
+	// primero borrar los días asociados
+	if err := s.repo.DeleteDaysByWeek(ctx, weekID); err != nil {
+		return err
+	}
+	// luego la semana
+	return s.repo.DeleteWeek(ctx, programID, weekID)
 }
 
 func (s *programService) AddDay(ctx context.Context, weekID string, dayIndex int, notes *string) (*domain.ProgramDay, error) {

@@ -20,7 +20,8 @@ export default function Exercises() {
     staleTime: 60_000,
   })
 
-  const all: Exercise[] = listQ.data ?? []
+  const raw = listQ.data as any
+  const all: Exercise[] = Array.isArray(raw) ? raw : (raw?.items ?? [])
   
   useEffect(() => {
     if (listQ.isError) show({ type: 'error', message: 'No se pudieron cargar los ejercicios' })
@@ -39,7 +40,10 @@ export default function Exercises() {
   const updateM = useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Partial<Omit<Exercise, 'id'>> }) =>
       updateExercise(id, patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['exercises'] }),
+      onSuccess: async () => {
+    setEdit(null); // cierra el modal
+    await qc.invalidateQueries({ queryKey: ['exercises', 'list'] });
+  },
   })
 
   const deleteM = useMutation({
@@ -52,11 +56,38 @@ export default function Exercises() {
   })
 
   const rows = useMemo(() => {
-    return all.filter((e: Exercise) =>
-      e.name.toLowerCase().includes(q.toLowerCase())
-    )
+    const term = q.trim().toLowerCase()
+    if (!term) return all
+
+    return all.filter((e: Exercise) => {
+      const name = (e.name ?? '').toLowerCase()
+      const muscle = (e.primary_muscle ?? '').toLowerCase()
+      const equip = (e.equipment ?? '').toLowerCase()
+      const notes = (e.notes ?? '').toLowerCase()
+      const tags = Array.isArray(e.tags) ? e.tags.join(' ').toLowerCase() : ''
+      return (
+        name.includes(term) ||
+        muscle.includes(term) ||
+        equip.includes(term) ||
+        notes.includes(term) ||
+        tags.includes(term)
+      )
+    })
   }, [all, q])
 
+    if (listQ.isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Ejercicios</h2>
+          <div className="h-8 w-32 rounded bg-gray-100 dark:bg-neutral-800" />
+        </div>
+        <div className="h-9 rounded bg-gray-100 dark:bg-neutral-800" />
+        <div className="h-64 rounded border bg-white dark:bg-neutral-900 dark:border-neutral-800" />
+      </div>
+    )
+  }
+  
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">

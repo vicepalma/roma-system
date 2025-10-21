@@ -5,36 +5,40 @@ import {
   listMyPrograms, createProgram, type Program,
   listWeeks, addWeek, type ProgramWeek,
   listDays, addDay, deleteDay, type ProgramDay,
-  listPrescriptions, addPrescription, deletePrescription, type DayPrescription,
+  listPrescriptions, addPrescription, deletePrescription, deleteProgram, deleteWeek, type DayPrescription,
 } from '@/services/programs'
 import Modal from '@/components/ui/Modal'
 import PrescriptionForm from '@/components/forms/PrescriptionForm'
+import clsx from 'clsx'
 
 export default function Programs() {
   const { show } = useToast()
   const qc = useQueryClient()
-
-  // ---- Queries base ----
-  const programsQ = useQuery({ queryKey: ['programs', 'mine'], queryFn: listMyPrograms, staleTime: 60_000 })
-
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null)
   const [selectedWeek, setSelectedWeek] = useState<ProgramWeek | null>(null)
   const [selectedDay, setSelectedDay] = useState<ProgramDay | null>(null)
+  const canAddDay = !!selectedProgram?.id && !!selectedWeek?.id;
+
+  // ---- Queries base ----
+  const programsQ = useQuery({
+    queryKey: ['programs', 'list', 'mine'],
+    queryFn: listMyPrograms,
+  })
 
   // Al seleccionar programa, cargar semanas
   const weeksQ = useQuery({
     queryKey: ['programs', selectedProgram?.id, 'weeks'],
     queryFn: () => listWeeks(selectedProgram!.id),
-    enabled: !!selectedProgram?.id,
-    staleTime: 30_000,
+    enabled: !!selectedProgram,
   })
+
 
   // Al seleccionar semana, cargar días
   const daysQ = useQuery({
     queryKey: ['programs', selectedProgram?.id, 'weeks', selectedWeek?.id, 'days'],
     queryFn: () => listDays(selectedProgram!.id, selectedWeek!.id),
     enabled: !!selectedProgram?.id && !!selectedWeek?.id,
-    staleTime: 30_000,
+    staleTime: 0,
   })
 
   // Al seleccionar día, cargar prescripciones
@@ -49,6 +53,9 @@ export default function Programs() {
     if (programsQ.isError) show({ type: 'error', message: 'No se pudieron cargar los programas' })
   }, [programsQ.isError, show])
 
+
+
+
   // ---- Mutations ----
   const createProgramM = useMutation({
     mutationFn: createProgram,
@@ -56,29 +63,79 @@ export default function Programs() {
       await qc.invalidateQueries({ queryKey: ['programs', 'mine'] })
       setSelectedProgram(p)
       show({ type: 'success', message: 'Programa creado' })
+      setOpenNewProgram(false)
+      await qc.invalidateQueries({ queryKey: ['programs'], exact: false, refetchType: 'active' })
     },
     onError: () => show({ type: 'error', message: 'No se pudo crear el programa' }),
   })
 
+  const delProgramM = useMutation({
+    mutationFn: (id: string) => deleteProgram(id),
+
+    // 1) Optimista
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: ['programs'] })
+
+      const prevList = qc.getQueryData<Program[]>(['programs', 'list']) ?? []
+
+      qc.setQueryData<Program[]>(['programs', 'list'], prev =>
+        (prev ?? []).filter(p => p.id !== id)
+      )
+
+      // Si tienes cache por detalle: ['programs', id]
+      qc.removeQueries({ queryKey: ['programs', id], exact: true })
+      if (selectedProgram?.id === id) setSelectedProgram(null)
+      return { prevList }
+    },
+
+    // 2) Rollback si falla
+    onError: (_err, _id, ctx) => {
+      if (ctx?.prevList) qc.setQueryData(['programs', 'list'], ctx.prevList)
+    },
+
+    // 3) Refetch confiable de TODO lo que empiece por 'programs'
+    onSettled: async () => {
+      await qc.invalidateQueries({ queryKey: ['programs'], exact: false, refetchType: 'active' })
+    },
+  })
+
   const addWeekM = useMutation({
-    mutationFn: ({ programId, index, title }: { programId: string; index: number; title?: string | null }) =>
-      addWeek(programId, { index, title }),
+    mutationFn: (p: { programId: string; week_index: number; title?: string | null }) =>
+      addWeek(p.programId, { week_index: p.week_index, title: p.title ?? null }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['programs', selectedProgram?.id, 'weeks'] })
+      setOpenNewWeek(false)
       show({ type: 'success', message: 'Semana agregada' })
     },
     onError: () => show({ type: 'error', message: 'No se pudo agregar la semana' }),
   })
 
+  const delWeekM = useMutation({
+    mutationFn: (p: { programId: string; weekId: string }) =>
+      deleteWeek(p.programId, p.weekId),
+    onSuccess: async (_data, vars) => {
+      if (selectedWeek?.id === vars.weekId) setSelectedWeek(null)
+      await qc.invalidateQueries({ queryKey: ['programs', vars.programId, 'weeks'] })
+      show({ type: 'success', message: 'Semana eliminada' })
+    },
+    onError: () => show({ type: 'error', message: 'No se pudo eliminar la semana' }),
+  })
+
+
   const addDayM = useMutation({
-    mutationFn: ({ programId, weekId, day_index, notes }: { programId: string; weekId: string; day_index: number; notes?: string | null }) =>
-      addDay(programId, weekId, { day_index, notes }),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['programs', selectedProgram?.id, 'weeks', selectedWeek?.id, 'days'] })
-      show({ type: 'success', message: 'Día agregado' })
+    mutationFn: async (v: { day_index: number; notes?: string | null }) => {
+      if (!selectedProgram?.id || !selectedWeek?.id) {
+        throw new Error('Falta seleccionar programa y semana');
+      }
+      return addDay(selectedProgram.id, selectedWeek.id, v);
+    },
+    onSuccess: () => {
+      show({ type: 'success', message: 'Día agregado' });
+      qc.invalidateQueries({ queryKey: ['programs', selectedProgram!.id, 'weeks'] });
+      setOpenNewDay(false);
     },
     onError: () => show({ type: 'error', message: 'No se pudo agregar el día' }),
-  })
+  });
 
   const delDayM = useMutation({
     mutationFn: ({ programId, weekId, dayId }: { programId: string; weekId: string; dayId: string }) =>
@@ -122,9 +179,13 @@ export default function Programs() {
   const presc = prescQ.data ?? []
 
   // Próximos índices sugeridos
-  const nextWeekIndex = useMemo(() => (weeks.length ? Math.max(...weeks.map(w => w.index)) + 1 : 1), [weeks])
+  const nextWeekIndex = useMemo(() => (weeks.length ? Math.max(...weeks.map(w => w.week_index)) + 1 : 1), [weeks])
   const nextDayIndex = useMemo(() => (days.length ? Math.max(...days.map(d => d.day_index)) + 1 : 1), [days])
   const nextPosition = useMemo(() => (presc.length ? Math.max(...presc.map(p => p.position)) + 1 : 1), [presc])
+
+  useEffect(() => {
+    if (weeks?.length && !selectedWeek) setSelectedWeek(weeks[0])
+  }, [weeks, selectedWeek])
 
   return (
     <div className="grid md:grid-cols-[320px,1fr] gap-4">
@@ -146,20 +207,44 @@ export default function Programs() {
         <ul className="space-y-1">
           {(programsQ.data ?? []).map(p => (
             <li key={p.id}>
-              <button
-                onClick={() => { setSelectedProgram(p); setSelectedWeek(null); setSelectedDay(null) }}
-                className={`w-full text-left rounded px-2 py-1 text-sm ${
-                  selectedProgram?.id === p.id ? 'bg-black text-white' : 'hover:bg-gray-100 dark:hover:bg-neutral-800'
-                }`}
-              >
-                {p.title}
-              </button>
+              <div className="flex items-center justify-between hover:bg-gray-300 rounded-lg">
+                <button
+                  onClick={() => {
+                    setSelectedProgram(p)
+                    setSelectedWeek(null)
+                    setSelectedDay(null)
+                  }}
+                  className={`text-left rounded px-2 py-1 text-sm ${selectedProgram?.id === p.id
+                    ? 'bg-black text-white'
+                    : 'hover:bg-gray-100 dark:hover:bg-neutral-800'
+                    }`}
+                >
+                  {p.title}
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (confirm('¿Eliminar este programa? Esta acción no se puede deshacer.')) {
+                      delProgramM.mutate(p.id)
+                    }
+                  }}
+                  disabled={delProgramM.isPending}
+                  className="text-xs rounded px-2 py-1 border text-red-600 bg-white 
+hover:bg-red-50 active:bg-red-100 
+dark:bg-neutral-900 dark:border-neutral-800 
+transition-colors duration-150"
+                >
+                  Eliminar
+                </button>
+              </div>
             </li>
           ))}
+
           {!programsQ.isLoading && (programsQ.data ?? []).length === 0 && (
             <li className="text-xs text-gray-500">Sin programas</li>
           )}
         </ul>
+
       </div>
 
       {/* Columna derecha: detalle */}
@@ -184,16 +269,37 @@ export default function Programs() {
 
           {selectedProgram && weeks.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
-              {weeks.map(w => (
-                <button
-                  key={w.id}
-                  onClick={() => { setSelectedWeek(w); setSelectedDay(null) }}
-                  className={`rounded px-3 py-1 text-sm border dark:border-neutral-800 ${
-                    selectedWeek?.id === w.id ? 'bg-black text-white' : 'bg-white hover:bg-gray-50 dark:bg-neutral-900'
-                  }`}
-                >
-                  Semana {w.index}{w.title ? ` — ${w.title}` : ''}
-                </button>
+              {weeks.map((w) => (
+                <div key={w.id} className="inline-flex items-center">
+                  <button
+                    onClick={() => { setSelectedWeek(w); setSelectedDay(null) }}
+                    className={clsx(
+                      'rounded px-3 py-1 text-sm border dark:border-neutral-800',
+                      selectedWeek?.id === w.id
+                        ? 'bg-black text-white'
+                        : 'bg-white hover:bg-gray-50 dark:bg-neutral-900'
+                    )}
+                  >
+                    Semana {w.week_index}{w.title ? ` — ${w.title}` : ''}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      console.log(w)
+                      delWeekM.mutate({ programId: selectedProgram.id, weekId: w.id })
+                    }}
+                    disabled={delWeekM.isPending}
+                    className={clsx(
+                      'text-xs rounded px-2 py-1 border text-red-600 bg-white ',
+                      'hover:bg-red-50 active:bg-red-100',
+                      'dark:bg-neutral-900 dark:border-neutral-800',
+                      'transition-colors duration-150'
+                    )}
+                    title="Eliminar semana"
+                  >
+                    {delWeekM.isPending ? '…' : 'Eliminar'}
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -202,7 +308,9 @@ export default function Programs() {
         {/* Días */}
         <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
           <div className="flex items-center justify-between">
-            <div className="font-semibold">Días {selectedWeek ? `— Semana ${selectedWeek.index}` : ''}</div>
+            <div className="font-semibold">
+              Días {selectedWeek ? `— Semana ${selectedWeek.week_index}` : ''}
+            </div>
             {selectedWeek && (
               <button
                 onClick={() => setOpenNewDay(true)}
@@ -319,7 +427,7 @@ export default function Programs() {
         </form>
       </Modal>
 
-      <Modal open={openNewWeek} onClose={() => setOpenNewWeek(false)} title="Agregar semana">
+      <Modal open={openNewWeek} onClose={() => setOpenNewWeek(false)} title="Nueva semana">
         <form
           className="space-y-3"
           onSubmit={(e) => {
@@ -328,19 +436,31 @@ export default function Programs() {
             const fd = new FormData(e.currentTarget as HTMLFormElement)
             addWeekM.mutate({
               programId: selectedProgram.id,
-              index: Number(fd.get('index') || nextWeekIndex),
-              title: String(fd.get('title') || '') || null,
+              week_index: Number(fd.get('week_index') || nextWeekIndex),
+              title: (fd.get('title') as string) || null,
             })
           }}
         >
           <label className="text-sm block">
             <div className="mb-1">Índice *</div>
-            <input name="index" type="number" min={1} defaultValue={nextWeekIndex} required className="w-full border rounded px-2 py-1 text-sm dark:bg-neutral-900 dark:border-neutral-800" />
+            <input
+              name="week_index"
+              type="number"
+              min={1}
+              defaultValue={(weeksQ.data?.length ?? 0) + 1}
+              required
+              className="w-full border rounded px-2 py-1 text-sm dark:bg-neutral-900 dark:border-neutral-800"
+            />
           </label>
           <label className="text-sm block">
-            <div className="mb-1">Título</div>
-            <input name="title" className="w-full border rounded px-2 py-1 text-sm dark:bg-neutral-900 dark:border-neutral-800" />
+            <div className="mb-1">Título (opcional)</div>
+            <input
+              name="title"
+              className="w-full border rounded px-2 py-1 text-sm dark:bg-neutral-900 dark:border-neutral-800"
+              placeholder="Semana de fuerza"
+            />
           </label>
+
           <div className="flex items-center gap-2 pt-1">
             <button type="submit" disabled={addWeekM.isPending} className="text-sm rounded px-3 py-1 border">
               {addWeekM.isPending ? 'Agregando…' : 'Agregar'}
@@ -352,19 +472,21 @@ export default function Programs() {
         </form>
       </Modal>
 
+
       <Modal open={openNewDay} onClose={() => setOpenNewDay(false)} title="Agregar día">
         <form
           className="space-y-3"
           onSubmit={(e) => {
-            e.preventDefault()
-            if (!selectedProgram || !selectedWeek) return
-            const fd = new FormData(e.currentTarget as HTMLFormElement)
+            e.preventDefault();
+            if (!selectedProgram?.id || !selectedWeek?.id) {
+              show({ type: 'error', message: 'Selecciona una semana primero' });
+              return;
+            }
+            const fd = new FormData(e.currentTarget as HTMLFormElement);
             addDayM.mutate({
-              programId: selectedProgram.id,
-              weekId: selectedWeek.id,
               day_index: Number(fd.get('day_index') || nextDayIndex),
-              notes: String(fd.get('notes') || '') || null,
-            })
+              notes: ((fd.get('notes') as string) || '').trim() || null,
+            });
           }}
         >
           <label className="text-sm block">
@@ -376,7 +498,7 @@ export default function Programs() {
             <textarea name="notes" rows={2} className="w-full border rounded px-2 py-1 text-sm dark:bg-neutral-900 dark:border-neutral-800" />
           </label>
           <div className="flex items-center gap-2 pt-1">
-            <button type="submit" disabled={addDayM.isPending} className="text-sm rounded px-3 py-1 border">
+            <button type="submit" disabled={!canAddDay || addDayM.isPending} className="text-sm rounded px-3 py-1 border">
               {addDayM.isPending ? 'Agregando…' : 'Agregar'}
             </button>
             <button type="button" onClick={() => setOpenNewDay(false)} className="text-sm text-gray-600 hover:underline">
@@ -392,7 +514,7 @@ export default function Programs() {
             defaultValues={{ position: nextPosition }}
             submitting={addPrescM.isPending}
             onCancel={() => setOpenNewPresc(false)}
-            onSubmit={async  (vals) => { await addPrescM.mutateAsync({ dayId: selectedDay.id, values: vals }) }}
+            onSubmit={async (vals) => { await addPrescM.mutateAsync({ dayId: selectedDay.id, values: vals }) }}
           />
         ) : (
           <div className="text-sm text-gray-500">Selecciona un día</div>

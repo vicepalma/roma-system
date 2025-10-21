@@ -43,6 +43,7 @@ func (h *ProgramHandler) Register(r *gin.RouterGroup) {
 		g.PUT("/prescriptions/:id", h.updatePresc)
 		g.DELETE("/prescriptions/:id", h.deletePresc)
 		g.PATCH("/prescriptions/reorder", h.reorderPresc)
+		g.DELETE("/:id/weeks/:weekId", h.deleteWeek)
 	}
 
 }
@@ -199,6 +200,24 @@ func (h *ProgramHandler) listWeeks(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
+func (h *ProgramHandler) deleteWeek(c *gin.Context) {
+	programID := c.Param("id")
+	weekID := c.Param("weekId")
+
+	if programID == "" || weekID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing_params"})
+		return
+	}
+
+	ctx := c.Request.Context()
+	if err := h.svc.DeleteWeek(ctx, programID, weekID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 func (h *ProgramHandler) listDays(c *gin.Context) {

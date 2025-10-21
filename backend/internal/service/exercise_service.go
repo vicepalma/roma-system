@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/vicepalma/roma-system/backend/internal/repository"
 )
@@ -27,6 +28,7 @@ func NewExerciseService(r repository.ExerciseRepository) ExerciseService {
 
 // DTOs
 type CreateExercise struct {
+	ID            string   `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
 	Name          string   `json:"name"`
 	PrimaryMuscle string   `json:"primary_muscle"`
 	Equipment     *string  `json:"equipment"`
@@ -52,6 +54,7 @@ func (s *exerciseService) Create(ctx context.Context, in CreateExercise) (*repos
 		return nil, errors.New("name and primary_muscle are required")
 	}
 	ex := &repository.Exercise{
+		ID:            uuid.NewString(),
 		Name:          strings.TrimSpace(in.Name),
 		PrimaryMuscle: strings.TrimSpace(in.PrimaryMuscle),
 		Equipment:     normalizePtr(in.Equipment),

@@ -104,6 +104,8 @@ type ProgramRepository interface {
 	ListDays(ctx context.Context, weekID string) ([]ProgramDay, error)
 	UpdateDay(ctx context.Context, id string, patch map[string]any) (*ProgramDay, error)
 	DeleteDay(ctx context.Context, id string) error
+	DeleteDaysByWeek(ctx context.Context, weekID string) error
+	DeleteWeek(ctx context.Context, programID, weekID string) error
 
 	// prescriptions
 	ListPrescriptions(ctx context.Context, dayID string) ([]Prescription, error)
@@ -159,6 +161,15 @@ func (r *programRepository) ListMyPrograms(ctx context.Context, ownerID string, 
 
 func (r *programRepository) AddWeek(ctx context.Context, w *domain.ProgramWeek) error {
 	return r.db.WithContext(ctx).Create(w).Error
+}
+func (r *programRepository) DeleteDaysByWeek(ctx context.Context, weekID string) error {
+	return r.db.WithContext(ctx).
+		Exec(`DELETE FROM program_days WHERE week_id = ?`, weekID).Error
+}
+
+func (r *programRepository) DeleteWeek(ctx context.Context, programID, weekID string) error {
+	return r.db.WithContext(ctx).
+		Exec(`DELETE FROM program_weeks WHERE id = ? AND program_id = ?`, weekID, programID).Error
 }
 func (r *programRepository) AddDay(ctx context.Context, d *domain.ProgramDay) error {
 	return r.db.WithContext(ctx).Create(d).Error
