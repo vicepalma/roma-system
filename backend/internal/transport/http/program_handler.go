@@ -3,13 +3,24 @@ package http
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/vicepalma/roma-system/backend/internal/domain"
 	"github.com/vicepalma/roma-system/backend/internal/security"
 	"github.com/vicepalma/roma-system/backend/internal/service"
 )
+
+type addPrescriptionReq struct {
+	ExerciseID string `json:"exercise_id"` // uuid
+	Series     int    `json:"series"`      // >=1
+	Reps       string `json:"reps"`        // "10-12" etc
+	RestSec    *int   `json:"rest_sec,omitempty"`
+	ToFailure  bool   `json:"to_failure"`
+	Position   *int   `json:"position,omitempty"`
+}
 
 type ProgramHandler struct{ svc service.ProgramService }
 
@@ -54,6 +65,17 @@ func userID(c *gin.Context) string {
 		return s
 	}
 	return ""
+}
+
+func strPtrOrNil(s *string) *string {
+	if s == nil {
+		return nil
+	}
+	if strings.TrimSpace(*s) == "" {
+		return nil
+	}
+	v := strings.TrimSpace(*s)
+	return &v
 }
 
 func (h *ProgramHandler) createProgram(c *gin.Context) {
@@ -104,7 +126,7 @@ func (h *ProgramHandler) addWeek(c *gin.Context) {
 }
 
 func (h *ProgramHandler) addDay(c *gin.Context) {
-	id := c.Param("id")
+	weekID := c.Param("weekId")
 	type req struct {
 		DayIndex int     `json:"day_index" binding:"required,min=1"`
 		Notes    *string `json:"notes"`
@@ -114,7 +136,7 @@ func (h *ProgramHandler) addDay(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "bad_request"})
 		return
 	}
-	d, err := h.svc.AddDay(c, id, body.DayIndex, body.Notes)
+	d, err := h.svc.AddDay(c, weekID, body.DayIndex, body.Notes)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "db_error", "detail": err.Error()})
 		return
@@ -123,19 +145,62 @@ func (h *ProgramHandler) addDay(c *gin.Context) {
 }
 
 func (h *ProgramHandler) addPrescription(c *gin.Context) {
-	id := c.Param("id")
-	var body domain.Prescription
-	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(400, gin.H{"error": "bad_request", "detail": err.Error()})
+
+	dayID := c.Param("dayId")
+	if _, err := uuid.Parse(dayID); err != nil {
+		c.JSON(400, gin.H{"error": "bad_request", "detail": "invalid day_id"})
 		return
 	}
-	body.DayID = id
-	p, err := h.svc.AddPrescription(c, &body)
+
+	type req struct {
+		ExerciseID string   `json:"exercise_id" binding:"required"`
+		Series     int      `json:"series" binding:"required,min=1"`
+		Reps       string   `json:"reps" binding:"required"`
+		RestSec    *int     `json:"rest_sec"`
+		ToFailure  *bool    `json:"to_failure"`
+		Tempo      *string  `json:"tempo"`
+		RIR        *int     `json:"rir"`
+		RPE        *float32 `json:"rpe"`
+		MethodID   *string  `json:"method_id"`
+		Notes      *string  `json:"notes"`
+		Position   int      `json:"position" binding:"required,min=1"`
+	}
+	var body req
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(400, gin.H{"error": "bad_request"})
+		return
+	}
+	if _, err := uuid.Parse(body.ExerciseID); err != nil {
+		c.JSON(400, gin.H{"error": "bad_request", "detail": "invalid exercise_id"})
+		return
+	}
+	if body.MethodID != nil && *body.MethodID != "" {
+		if _, err := uuid.Parse(*body.MethodID); err != nil {
+			c.JSON(400, gin.H{"error": "bad_request", "detail": "invalid method_id"})
+			return
+		}
+	}
+
+	p := &domain.Prescription{
+		DayID:      dayID,
+		ExerciseID: body.ExerciseID,
+		Series:     body.Series,
+		Reps:       strings.TrimSpace(body.Reps),
+		RestSec:    body.RestSec, // ya es *int
+		ToFailure:  body.ToFailure != nil && *body.ToFailure,
+		Tempo:      strPtrOrNil(body.Tempo),
+		RIR:        body.RIR,
+		RPE:        body.RPE,
+		MethodID:   strPtrOrNil(body.MethodID), // <- clave
+		Notes:      strPtrOrNil(body.Notes),
+		Position:   body.Position,
+	}
+	row, err := h.svc.AddPrescription(c.Request.Context(), p)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "db_error", "detail": err.Error()})
 		return
 	}
-	c.JSON(201, p)
+	c.JSON(http.StatusCreated, row)
 }
 
 func (h *ProgramHandler) get(c *gin.Context) {

@@ -19,6 +19,7 @@ export type ProgramDay = {
   id: string
   week_id: string
   day_index: number
+  title?: string | null
   notes?: string | null
 }
 

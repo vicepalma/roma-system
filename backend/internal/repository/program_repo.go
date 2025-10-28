@@ -36,10 +36,11 @@ type ProgramWeek struct {
 }
 
 type ProgramDay struct {
-	ID       string `gorm:"type:uuid;primaryKey"`
-	WeekID   string `gorm:"type:uuid;index;not null"`
-	DayIndex int    `gorm:"not null"`
-	Notes    *string
+	ID       string  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	WeekID   string  `gorm:"type:uuid;not null;index" json:"week_id"`
+	DayIndex int     `gorm:"not null" json:"day_index"`
+	Title    *string `gorm:"type:text" json:"title,omitempty"`
+	Notes    *string `gorm:"type:text" json:"notes,omitempty"`
 }
 
 type Prescription struct {

@@ -10,6 +10,8 @@ import {
 import Modal from '@/components/ui/Modal'
 import PrescriptionForm from '@/components/forms/PrescriptionForm'
 import clsx from 'clsx'
+import { listExercises } from '@/services/exercises'
+import type { Exercise } from '@/types/exercises'
 
 export default function Programs() {
   const { show } = useToast()
@@ -18,6 +20,7 @@ export default function Programs() {
   const [selectedWeek, setSelectedWeek] = useState<ProgramWeek | null>(null)
   const [selectedDay, setSelectedDay] = useState<ProgramDay | null>(null)
   const canAddDay = !!selectedProgram?.id && !!selectedWeek?.id;
+  const [selectedExerciseId, setSelectedExerciseId] = useState<string>('')
 
   // ---- Queries base ----
   const programsQ = useQuery({
@@ -48,6 +51,19 @@ export default function Programs() {
     enabled: !!selectedDay?.id,
     staleTime: 15_000,
   })
+
+  const exQ = useQuery({
+    queryKey: ['exercises', 'list'],
+    queryFn: listExercises,
+    staleTime: 60_000,
+  })
+  const exMap = useMemo(() => {
+  const m = new Map<string, Exercise>()
+  ;(exQ.data ?? []).forEach((e: Exercise) => m.set(e.id, e))
+  return m
+  }, [exQ.data])
+
+  const exercises: Exercise[] = exQ.data ?? []
 
   useEffect(() => {
     if (programsQ.isError) show({ type: 'error', message: 'No se pudieron cargar los programas' })
@@ -123,34 +139,33 @@ export default function Programs() {
 
 
   const addDayM = useMutation({
-    mutationFn: async (v: { day_index: number; notes?: string | null }) => {
-      if (!selectedProgram?.id || !selectedWeek?.id) {
-        throw new Error('Falta seleccionar programa y semana');
-      }
-      return addDay(selectedProgram.id, selectedWeek.id, v);
+    mutationFn: (v: { programId: string; weekId: string; day_index: number; notes?: string | null }) =>
+      addDay(v.programId, v.weekId, { day_index: v.day_index, notes: v.notes }),
+    onSuccess: async (_created, v) => {
+      await qc.invalidateQueries({ queryKey: ['programs', v.programId, 'weeks', v.weekId, 'days'] })
+      show({ type: 'success', message: 'Día agregado' })
+      setOpenNewDay(false)
     },
-    onSuccess: () => {
-      show({ type: 'success', message: 'Día agregado' });
-      qc.invalidateQueries({ queryKey: ['programs', selectedProgram!.id, 'weeks'] });
-      setOpenNewDay(false);
+    onError: (err: any) => {
+      const msg = err?.response?.data?.detail || err?.response?.data?.error || 'Error'
+      show({ type: 'error', message: `No se pudo agregar el día: ${msg}` })
     },
-    onError: () => show({ type: 'error', message: 'No se pudo agregar el día' }),
-  });
+  })
 
   const delDayM = useMutation({
     mutationFn: ({ programId, weekId, dayId }: { programId: string; weekId: string; dayId: string }) =>
       deleteDay(programId, weekId, dayId),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['programs', selectedProgram?.id, 'weeks', selectedWeek?.id, 'days'] })
-      setSelectedDay(null)
       show({ type: 'success', message: 'Día eliminado' })
+      await qc.invalidateQueries({ queryKey: ['programs', selectedProgram?.id, 'weeks', selectedWeek?.id, 'days'] })
     },
     onError: () => show({ type: 'error', message: 'No se pudo eliminar el día' }),
   })
 
+
   const addPrescM = useMutation({
     mutationFn: ({ dayId, values }: { dayId: string; values: Parameters<typeof addPrescription>[1] }) =>
-      addPrescription(dayId, values),
+      addPrescription(dayId, { ...values, method_id: null }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['days', selectedDay?.id, 'prescriptions'] })
       setOpenNewPresc(false)
@@ -321,81 +336,148 @@ transition-colors duration-150"
             )}
           </div>
 
-          {!selectedWeek && <div className="text-sm text-gray-500">Selecciona una semana</div>}
-          {selectedWeek && daysQ.isLoading && <div className="h-16 bg-gray-100 dark:bg-neutral-800 rounded" />}
+          {!selectedWeek && (
+            <div className="text-sm text-gray-500">Selecciona una semana</div>
+          )}
 
-          {selectedWeek && days.length > 0 && (
+          {selectedWeek && daysQ.isLoading && (
+            <div className="h-16 bg-gray-100 dark:bg-neutral-800 rounded" />
+          )}
+
+          {selectedWeek && !daysQ.isLoading && days.length > 0 && (
             <ul className="mt-2 space-y-2">
-              {days.map(d => (
-                <li key={d.id} className="rounded border px-3 py-2 dark:border-neutral-800">
-                  <div className="flex items-center justify-between">
-                    <button
-                      onClick={() => setSelectedDay(d)}
-                      className={`text-sm font-medium ${selectedDay?.id === d.id ? 'text-blue-600' : ''}`}
-                    >
-                      Día {d.day_index}
-                    </button>
-                    <button
-                      onClick={() => delDayM.mutate({ programId: selectedProgram!.id, weekId: selectedWeek!.id, dayId: d.id })}
-                      className="text-xs text-red-600 rounded px-2 py-0.5 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                  {d.notes && <div className="text-xs text-gray-600 mt-1">{d.notes}</div>}
-                </li>
-              ))}
+              {days.map((d) => {
+                const isActive = selectedDay?.id === d.id
+                return (
+                  <li key={d.id} className="rounded border px-3 py-2 dark:border-neutral-800">
+                    <div className="flex items-center justify-between">
+                      <button
+                        onClick={() => setSelectedDay(d)}
+                        className={[
+                          'text-sm font-medium rounded px-2 py-1 border dark:border-neutral-800',
+                          isActive
+                            ? 'bg-black text-white'
+                            : 'bg-white hover:bg-gray-50 dark:bg-neutral-900',
+                        ].join(' ')}
+                      >
+                        Día {d.day_index}
+                      </button>
+
+                      <button
+                        onClick={() => delDayM.mutate({
+                          programId: selectedProgram!.id,
+                          weekId: selectedWeek!.id,
+                          dayId: d.id,
+                        })}
+                        className="text-xs text-red-600 rounded px-2 py-0.5 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+
+                    {d.notes && (
+                      <div className="text-xs text-gray-600 mt-1">{d.notes}</div>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           )}
+
           {selectedWeek && !daysQ.isLoading && days.length === 0 && (
             <div className="text-sm text-gray-500 mt-2">Sin días</div>
           )}
         </div>
 
-        {/* Prescripciones del día */}
-        <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
-          <div className="flex items-center justify-between">
-            <div className="font-semibold">Prescripciones {selectedDay ? `— Día ${selectedDay.day_index}` : ''}</div>
-            {selectedDay && (
-              <button
-                onClick={() => setOpenNewPresc(true)}
-                className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
-              >
-                Agregar prescripción
-              </button>
+
+{/* Prescripciones del día */}
+<div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
+  <div className="flex items-center justify-between">
+    <div className="font-semibold">Prescripciones {selectedDay ? `— Día ${selectedDay.day_index}` : ''}</div>
+    {selectedDay && (
+      <button
+        onClick={() => setOpenNewPresc(true)}
+        className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+      >
+        Agregar prescripción
+      </button>
+    )}
+  </div>
+
+  {!selectedDay && <div className="text-sm text-gray-500">Selecciona un día</div>}
+  {selectedDay && prescQ.isLoading && <div className="h-16 bg-gray-100 dark:bg-neutral-800 rounded" />}
+
+  {selectedDay && presc.length > 0 && (
+    <ul className="mt-2 space-y-2">
+{presc.map(p => {
+  const ex = exMap.get(p.exercise_id)
+  const title = p.exercise_name && p.exercise_name.trim() !== ''
+    ? p.exercise_name
+    : ex?.name ?? p.exercise_id
+
+  const chipMuscle = p.primary_muscle ?? ex?.primary_muscle
+  const chipEquip = (p as any).equipment ?? ex?.equipment // por si backend no lo trae en este endpoint
+
+  return (
+    <li key={p.id} className="rounded border px-3 py-2 dark:border-neutral-800">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-sm font-medium">{title}</div>
+
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-neutral-300">
+            {chipMuscle && (
+              <span className="inline-flex items-center rounded border px-1.5 py-0.5 dark:border-neutral-800">
+                {chipMuscle}
+              </span>
             )}
+            {chipEquip && (
+              <span className="inline-flex items-center rounded border px-1.5 py-0.5 dark:border-neutral-800">
+                {chipEquip}
+              </span>
+            )}
+            <span className="inline-flex items-center rounded border px-1.5 py-0.5 dark:border-neutral-800">
+              Posición {p.position}
+            </span>
           </div>
-
-          {!selectedDay && <div className="text-sm text-gray-500">Selecciona un día</div>}
-          {selectedDay && prescQ.isLoading && <div className="h-16 bg-gray-100 dark:bg-neutral-800 rounded" />}
-
-          {selectedDay && presc.length > 0 && (
-            <ul className="mt-2 space-y-2">
-              {presc.map(p => (
-                <li key={p.id} className="rounded border px-3 py-2 dark:border-neutral-800">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium">
-                      {p.exercise_name ?? p.exercise_id}
-                    </div>
-                    <button
-                      onClick={() => delPrescM.mutate(p.id)}
-                      className="text-xs text-red-600 rounded px-2 py-0.5 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                  <div className="text-xs text-gray-600 mt-1">
-                    Series: {p.series} · Reps: {p.reps} · Posición: {p.position}{p.rest_sec ? ` · Descanso: ${p.rest_sec}s` : ''}
-                    {p.to_failure ? ' · A fallo' : ''}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-          {selectedDay && !prescQ.isLoading && presc.length === 0 && (
-            <div className="text-sm text-gray-500 mt-2">Sin prescripciones</div>
-          )}
         </div>
+
+        <button
+          onClick={() => delPrescM.mutate(p.id)}
+          className="text-xs text-red-600 rounded px-2 py-0.5 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+        >
+          Eliminar
+        </button>
+      </div>
+
+      <div className="text-xs text-gray-700 dark:text-neutral-200 mt-2">
+        Series: <span className="font-medium">{p.series}</span>
+        <span className="mx-2">·</span>
+        Reps: <span className="font-medium">{p.reps}</span>
+        {typeof p.rest_sec === 'number' && (
+          <>
+            <span className="mx-2">·</span>
+            Descanso: <span className="font-medium">{p.rest_sec}s</span>
+          </>
+        )}
+        {p.to_failure && (
+          <>
+            <span className="mx-2">·</span>
+            A fallo
+          </>
+        )}
+      </div>
+    </li>
+  )
+})}
+
+    </ul>
+  )}
+
+  {selectedDay && !prescQ.isLoading && presc.length === 0 && (
+    <div className="text-sm text-gray-500 mt-2">Sin prescripciones</div>
+  )}
+</div>
+
       </div>
 
       {/* Modales */}
@@ -484,8 +566,10 @@ transition-colors duration-150"
             }
             const fd = new FormData(e.currentTarget as HTMLFormElement);
             addDayM.mutate({
+              programId: selectedProgram.id,
+              weekId: selectedWeek.id,             // UUID de la semana
               day_index: Number(fd.get('day_index') || nextDayIndex),
-              notes: ((fd.get('notes') as string) || '').trim() || null,
+              notes: (fd.get('notes') as string) || null,
             });
           }}
         >
@@ -510,16 +594,40 @@ transition-colors duration-150"
 
       <Modal open={openNewPresc} onClose={() => setOpenNewPresc(false)} title="Agregar prescripción">
         {selectedDay ? (
-          <PrescriptionForm
-            defaultValues={{ position: nextPosition }}
-            submitting={addPrescM.isPending}
-            onCancel={() => setOpenNewPresc(false)}
-            onSubmit={async (vals) => { await addPrescM.mutateAsync({ dayId: selectedDay.id, values: vals }) }}
-          />
+          <div className="space-y-3">
+            <label className="text-sm block">
+              <div className="mb-1">Ejercicio *</div>
+              <select
+                className="w-full border rounded px-2 py-1 text-sm dark:bg-neutral-900 dark:border-neutral-800"
+                value={selectedExerciseId}
+                onChange={(e) => setSelectedExerciseId(e.target.value)}
+                required
+              >
+                <option value="">— Selecciona —</option>
+                {exercises.map(ex => (
+                  <option key={ex.id} value={ex.id}>
+                    {ex.name} · {ex.primary_muscle}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <PrescriptionForm
+              exerciseId={selectedExerciseId}                 // <- ahora sí existe
+              defaultValues={{ position: nextPosition }}
+              submitting={addPrescM.isPending}
+              onCancel={() => setOpenNewPresc(false)}
+              onSubmit={async (vals) => {
+                if (!selectedExerciseId) return
+                await addPrescM.mutateAsync({ dayId: selectedDay.id, values: vals })
+              }}
+            />
+          </div>
         ) : (
           <div className="text-sm text-gray-500">Selecciona un día</div>
         )}
       </Modal>
+
     </div>
   )
 }

@@ -65,6 +65,7 @@ CREATE TABLE program_days (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   week_id    UUID NOT NULL REFERENCES program_weeks(id) ON DELETE CASCADE,
   day_index  INT  NOT NULL CHECK (day_index >= 1),
+  title      TEXT NOT NULL,
   notes      TEXT NULL
 );
 CREATE INDEX idx_days_week ON program_days(week_id);

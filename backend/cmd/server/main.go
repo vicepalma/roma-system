@@ -152,6 +152,10 @@ func main() {
 	inviteSvc := service.NewInviteService(inviteRepo, coachSvc, os.Getenv("INVITES_BASE_URL"))
 	inviteH := httpHandlers.NewInviteHandler(inviteSvc)
 
+	adRepo := repository.NewAssignmentDaysRepository(db)
+	adSvc := service.NewAssignmentDaysService(adRepo, coachSvc)
+	adH := httpHandlers.NewAssignmentDaysHandler(adSvc)
+
 	// Handlers
 	authH := httpHandlers.NewAuthHandler(userRepo, db)
 
@@ -178,6 +182,7 @@ func main() {
 	histH.Register(api)
 	coachH.Register(api)
 	inviteH.Register(api)
+	adH.Register(api)
 
 	// start async
 	go func() {
