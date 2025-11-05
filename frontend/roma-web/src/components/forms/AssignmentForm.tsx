@@ -1,104 +1,116 @@
 import { useState } from 'react'
+import type { ProgramOption } from '@/services/programs'
+
+type FormValues = {
+  disciple_id: string
+  program_id: string
+  program_version: number
+  start_date: string
+  end_date?: string | null
+}
 
 type Props = {
   disciples: { id: string; name: string; email: string }[]
-  onSubmit: (values: {
-    disciple_id: string
-    program_id: string
-    program_version: number
-    start_date: string
-    end_date?: string | null
-  }) => Promise<any> | any
+  programs: ProgramOption[]
   submitting?: boolean
+  onSubmit: (values: FormValues) => Promise<unknown> | void
 }
 
-export default function AssignmentForm({ disciples, onSubmit, submitting }: Props) {
-  const [disciple_id, setDisciple] = useState('')
-  const [program_id, setProgram] = useState('')
-  const [program_version, setVersion] = useState<number>(1)
-  const [start_date, setStart] = useState<string>(new Date().toISOString().slice(0, 10))
-  const [end_date, setEnd] = useState<string>('')
+export default function AssignmentForm({ disciples, programs, submitting, onSubmit }: Props) {
+  const [v, setV] = useState<FormValues>({
+    disciple_id: '',
+    program_id: '',
+    program_version: 1,
+    start_date: new Date().toISOString().slice(0, 10),
+    end_date: null,
+  })
+
+  const onProgramChange = (programId: string) => {
+    const p = programs.find(x => x.id === programId)
+    setV(s => ({
+      ...s,
+      program_id: programId,
+      program_version: p?.version ?? 1,
+    }))
+  }
 
   return (
     <form
-      className="space-y-3"
+      className="grid sm:grid-cols-2 gap-3"
       onSubmit={async (e) => {
         e.preventDefault()
         await onSubmit({
-          disciple_id,
-          program_id,
-          program_version: Number(program_version) || 1,
-          start_date,
-          end_date: end_date ? end_date : null,
+          ...v,
+          end_date: v.end_date && v.end_date.trim() !== '' ? v.end_date : null,
         })
       }}
     >
-      <div className="grid gap-3 md:grid-cols-2">
-        <label className="text-sm">
-          <div className="mb-1">Discípulo</div>
-          <select
-            className="w-full rounded border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-2"
-            value={disciple_id}
-            onChange={(e) => setDisciple(e.target.value)}
-            required
-          >
-            <option value="">Selecciona…</option>
-            {disciples.map(d => (
-              <option key={d.id} value={d.id}>{d.name} — {d.email}</option>
-            ))}
-          </select>
-        </label>
+      {/* Discípulo */}
+      <label className="text-sm">
+        <div className="mb-1">Discípulo *</div>
+        <select
+          required
+          className="w-full border rounded px-2 py-1 text-sm dark:bg-neutral-900 dark:border-neutral-800"
+          value={v.disciple_id}
+          onChange={(e) => setV(s => ({ ...s, disciple_id: e.target.value }))}
+        >
+          <option value="">Selecciona…</option>
+          {disciples.map(d => (
+            <option key={d.id} value={d.id}>{d.name} — {d.email}</option>
+          ))}
+        </select>
+      </label>
 
-        <label className="text-sm">
-          <div className="mb-1">Programa ID</div>
-          <input
-            className="w-full rounded border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-2"
-            value={program_id}
-            onChange={(e) => setProgram(e.target.value)}
-            placeholder="uuid del programa"
-            required
-          />
-        </label>
+      {/* Programa */}
+      <label className="text-sm">
+        <div className="mb-1">Programa *</div>
+        <select
+          required
+          className="w-full border rounded px-2 py-1 text-sm dark:bg-neutral-900 dark:border-neutral-800"
+          value={v.program_id}
+          onChange={(e) => onProgramChange(e.target.value)}
+        >
+          <option value="">Selecciona…</option>
+          {programs.map(p => (
+            <option key={p.id} value={p.id}>
+              {p.title} (v{p.version})
+            </option>
+          ))}
+        </select>
+        {/* Mostrar versión seleccionada (solo lectura) */}
+        <div className="text-[11px] text-gray-500 mt-1">
+          Versión seleccionada: v{v.program_version}
+        </div>
+      </label>
 
-        <label className="text-sm">
-          <div className="mb-1">Versión</div>
-          <input
-            type="number"
-            min={1}
-            className="w-full rounded border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-2"
-            value={program_version}
-            onChange={(e) => setVersion(Number(e.target.value))}
-            required
-          />
-        </label>
+      {/* Fecha inicio */}
+      <label className="text-sm">
+        <div className="mb-1">Fecha de inicio *</div>
+        <input
+          type="date"
+          required
+          className="w-full border rounded px-2 py-1 text-sm dark:bg-neutral-900 dark:border-neutral-800"
+          value={v.start_date}
+          onChange={(e) => setV(s => ({ ...s, start_date: e.target.value }))}
+        />
+      </label>
 
-        <label className="text-sm">
-          <div className="mb-1">Inicio</div>
-          <input
-            type="date"
-            className="w-full rounded border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-2"
-            value={start_date}
-            onChange={(e) => setStart(e.target.value)}
-            required
-          />
-        </label>
+      {/* Fecha fin (opcional) */}
+      <label className="text-sm">
+        <div className="mb-1">Fecha de término</div>
+        <input
+          type="date"
+          className="w-full border rounded px-2 py-1 text-sm dark:bg-neutral-900 dark:border-neutral-800"
+          value={v.end_date ?? ''}
+          onChange={(e) => setV(s => ({ ...s, end_date: e.target.value || null }))}
+        />
+      </label>
 
-        <label className="text-sm">
-          <div className="mb-1">Fin (opcional)</div>
-          <input
-            type="date"
-            className="w-full rounded border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-2"
-            value={end_date}
-            onChange={(e) => setEnd(e.target.value)}
-          />
-        </label>
-      </div>
-
-      <div className="pt-2 flex justify-end gap-2">
+      <div className="sm:col-span-2 flex items-center gap-2 pt-1">
         <button
           type="submit"
           disabled={submitting}
-          className="rounded border px-3 py-2 bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-sm"
+          className="text-sm rounded px-3 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
         >
           {submitting ? 'Creando…' : 'Crear asignación'}
         </button>

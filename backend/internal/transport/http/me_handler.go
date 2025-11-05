@@ -10,9 +10,25 @@ import (
 	"github.com/vicepalma/roma-system/backend/internal/service"
 )
 
-type MeHandler struct{ hist service.HistoryService }
+type MeHandler struct {
+	hist    service.HistoryService
+	coach   service.CoachService
+	session service.SessionService
+}
 
-func NewMeHandler(hist service.HistoryService) *MeHandler { return &MeHandler{hist: hist} }
+func (h *MeHandler) Register(r *gin.RouterGroup) {
+	g := r.Group("/me")
+	{
+		g.GET("/assignment/active", h.getActiveAssignment)
+		g.GET("/today", h.GetToday)
+		g.GET("/today/disciple", h.GetTodayForDisciple)
+		g.GET("/session/active", h.getActiveSession)
+	}
+}
+
+func NewMeHandler(hist service.HistoryService, cs service.CoachService, ss service.SessionService) *MeHandler {
+	return &MeHandler{hist: hist, coach: cs, session: ss}
+}
 
 // GET /api/me/today
 func (h *MeHandler) GetToday(c *gin.Context) {
@@ -42,4 +58,40 @@ func (h *MeHandler) GetTodayForDisciple(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, out)
+}
+
+func (h *MeHandler) getActiveAssignment(c *gin.Context) {
+	uid := security.UserID(c)
+	if uid == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	assign, err := h.coach.GetActiveAssignment(c.Request.Context(), uid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if assign == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not_found"})
+		return
+	}
+	c.JSON(http.StatusOK, assign)
+}
+
+func (h *MeHandler) getActiveSession(c *gin.Context) {
+	uid := security.UserID(c)
+	if uid == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	s, err := h.session.GetActiveOpenSessionForMe(c.Request.Context(), uid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if s == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not_found"})
+		return
+	}
+	c.JSON(http.StatusOK, s)
 }

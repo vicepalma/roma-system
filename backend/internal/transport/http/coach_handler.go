@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/vicepalma/roma-system/backend/internal/domain"
 	"github.com/vicepalma/roma-system/backend/internal/repository"
 	"github.com/vicepalma/roma-system/backend/internal/security"
@@ -60,6 +61,7 @@ func (h *CoachHandler) Register(r *gin.RouterGroup) {
 		)
 		grp.PATCH("/assignments/:id", h.patchAssignment)
 		grp.GET("/assignments/:id/calendar", h.assignmentCalendar)
+		grp.POST("/assignments/:id/activate", security.RequireCoachOfQuery(h.svc, "disciple_id"), h.activateAssignment)
 		// grp.POST("/invitations", security.RequireCoachOfSelf(h.svc), h.createInvite) // o AuthRequired si no tienes rol
 		// grp.POST("/invitations/:code/accept", security.AuthRequired(), h.acceptInvite)
 	}
@@ -383,4 +385,47 @@ func (h *CoachHandler) assignmentCalendar(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"items": items, "from": fromStr, "to": toStr})
+}
+
+// POST /api/coach/assignments/:id/activate?disciple_id=<uuid>
+func (h *CoachHandler) activateAssignment(c *gin.Context) {
+	uid := security.UserID(c)
+	if uid == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	assignmentID := c.Param("id")
+	if _, err := uuid.Parse(assignmentID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request", "detail": "invalid id"})
+		return
+	}
+
+	discipleID := strings.TrimSpace(c.Query("disciple_id"))
+	if discipleID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request", "detail": "missing disciple_id"})
+		return
+	}
+	if _, err := uuid.Parse(discipleID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request", "detail": "invalid disciple_id"})
+		return
+	}
+
+	// Autorización mínima: el caller debe ser el coach del discípulo o el mismo discípulo
+	isCoach, err := h.svc.CanCoach(c.Request.Context(), uid, discipleID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !(isCoach || uid == discipleID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+
+	// Activar (transaccional en el servicio)
+	if err := h.svc.ActivateAssignment(c.Request.Context(), discipleID, assignmentID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error", "detail": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/vicepalma/roma-system/backend/internal/domain"
@@ -48,7 +49,7 @@ type AssignmentRow struct {
 	AssignedBy     string    `gorm:"type:uuid;not null"`
 	StartDate      time.Time `gorm:"type:date;not null"`
 	EndDate        *time.Time
-	IsActive       bool `gorm:"not null;default:true"`
+	IsActive       bool `gorm:"not null;default:false"`
 	CreatedAt      time.Time
 }
 
@@ -73,6 +74,7 @@ type CoachRepository interface {
 	GetAssignmentByID(ctx context.Context, id string) (*AssignmentRow, error)
 	UpdateAssignment(ctx context.Context, id string, patch map[string]any) error
 	ListProgramDaysByProgramWeek(ctx context.Context, programID string, weekIndex int) ([]ProgramDayLite, error)
+	GetActiveAssignment(ctx context.Context, discipleID string) (*domain.Assignment, error)
 }
 
 type coachRepository struct{ db *gorm.DB }
@@ -125,14 +127,19 @@ func (r *coachRepository) ListLinksForUser(ctx context.Context, userID string) (
 }
 
 func (r *coachRepository) CanCoach(ctx context.Context, coachID, discipleID string) (bool, error) {
-	if coachID == discipleID {
-		return true, nil
+	// Short-circuit: si falta algún ID, no consultes DB
+	if coachID == "" || discipleID == "" {
+		return false, nil
 	}
 	var count int64
-	err := r.db.WithContext(ctx).Model(&domain.CoachLink{}).
+	err := r.db.WithContext(ctx).
+		Table("coach_links").
 		Where("coach_id = ? AND disciple_id = ? AND status = 'accepted'", coachID, discipleID).
 		Count(&count).Error
-	return count > 0, err
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (r *coachRepository) ListDisciples(ctx context.Context, coachID string) ([]DiscipleRow, error) {
@@ -152,7 +159,7 @@ func (r *coachRepository) CreateAssignment(ctx context.Context, coachID, discipl
 	var row AssignmentMinimal
 	err := r.db.WithContext(ctx).Raw(`
 		INSERT INTO assignments (program_id, program_version, disciple_id, assigned_by, start_date, is_active)
-		VALUES (?, 1, ?, ?, ?, true)
+		VALUES (?, 1, ?, ?, ?, false)
 		RETURNING id, program_id, program_version, disciple_id, assigned_by, start_date, is_active, created_at
 	`, programID, discipleID, coachID, startDate).Scan(&row).Error
 	if err != nil {
@@ -263,4 +270,27 @@ func (r *coachRepository) ListProgramDaysByProgramWeek(ctx context.Context, prog
 		return nil, err
 	}
 	return days, nil
+}
+
+func (r *coachRepository) GetActiveAssignment(ctx context.Context, discipleID string) (*domain.Assignment, error) {
+	var a domain.Assignment
+	q := `
+SELECT id, program_id, program_version, disciple_id, assigned_by, start_date, end_date, is_active, created_at
+FROM assignments
+WHERE disciple_id = ?
+  AND is_active = true
+  AND start_date <= CURRENT_DATE
+  AND (end_date IS NULL OR end_date >= CURRENT_DATE)
+ORDER BY created_at DESC
+LIMIT 1`
+	if err := r.db.WithContext(ctx).Raw(q, discipleID).Scan(&a).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if a.ID == "" {
+		return nil, nil
+	}
+	return &a, nil
 }

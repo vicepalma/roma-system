@@ -40,3 +40,15 @@ export type AssignmentListRow = {
   is_active: boolean
   created_at: string
 }
+
+export type AssignmentDay = {
+  id: string
+  week_id: string
+  week_index: number
+  day_index: number
+  title?: string | null
+  notes?: string | null
+  prescriptions_count: number
+  exercise_names: string[]
+  is_session_day: boolean
+}

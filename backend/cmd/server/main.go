@@ -134,12 +134,13 @@ func main() {
 	progSvc := service.NewProgramService(progRepo)
 	progH := httpHandlers.NewProgramHandler(progSvc)
 
+	assignRepo := repository.NewAssignmentRepository(db)
 	histRepo := repository.NewHistoryRepository(db)
 	histSvc := service.NewHistoryService(histRepo)
 	histH := httpHandlers.NewHistoryHandler(histSvc, "")
 
 	coachRepo := repository.NewCoachRepository(db)
-	coachSvc := service.NewCoachService(coachRepo, histSvc)
+	coachSvc := service.NewCoachService(coachRepo, histSvc, db, assignRepo)
 	coachH := httpHandlers.NewCoachHandler(coachSvc, histSvc, userRepo)
 
 	sessRepo := sr.NewSessionRepository(db)
@@ -158,6 +159,7 @@ func main() {
 
 	// Handlers
 	authH := httpHandlers.NewAuthHandler(userRepo, db)
+	meH := httpHandlers.NewMeHandler(histSvc, coachSvc, sessSvc)
 
 	// Servicio ejercicios
 	svc := service.NewExerciseService(exRepo)
@@ -183,6 +185,7 @@ func main() {
 	coachH.Register(api)
 	inviteH.Register(api)
 	adH.Register(api)
+	meH.Register(api)
 
 	// start async
 	go func() {

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/vicepalma/roma-system/backend/internal/domain"
@@ -22,7 +23,7 @@ type SessionMeta struct {
 type SessionRepository interface {
 	CreateSession(ctx context.Context, s *domain.SessionLog) error
 	GetSession(ctx context.Context, id, discipleID string) (*domain.SessionLog, error)
-	ListSets(ctx context.Context, sessionID string) ([]domain.SetLog, error)
+	ListSets(ctx context.Context, sessionID string) ([]domain.SetRow, error)
 	AddSet(ctx context.Context, set *domain.SetLog) error
 	AddCardio(ctx context.Context, seg *CardioSegment) error
 	ListCardio(ctx context.Context, sessionID string) ([]CardioSegment, error)
@@ -34,6 +35,7 @@ type SessionRepository interface {
 	UpdateSession(ctx context.Context, id string, patch map[string]any) error
 	UpdateSet(ctx context.Context, setID string, patch map[string]any) error
 	DeleteSet(ctx context.Context, setID string) error
+	GetLatestOpenByDisciple(ctx context.Context, discipleID string) (*domain.SessionLog, error)
 }
 
 type sessionRepository struct{ db *gorm.DB }
@@ -53,10 +55,28 @@ func (r *sessionRepository) GetSession(ctx context.Context, id, discipleID strin
 	return &s, nil
 }
 
-func (r *sessionRepository) ListSets(ctx context.Context, sessionID string) ([]domain.SetLog, error) {
-	var rows []domain.SetLog
-	err := r.db.WithContext(ctx).Where("session_id = ?", sessionID).
-		Order("set_index ASC, id ASC").Find(&rows).Error
+func (r *sessionRepository) ListSets(ctx context.Context, sessionID string) ([]domain.SetRow, error) {
+	var rows []domain.SetRow
+	err := r.db.WithContext(ctx).
+		Table("set_logs AS s").
+		Select(`
+			s.id,
+			s.session_id,
+			s.prescription_id,
+			s.set_index,
+			s.weight,
+			s.reps,
+			s.rpe,
+			s.to_failure,
+			p.day_id,
+			p.exercise_id,
+			COALESCE(e.name, '') AS exercise_name
+		`).
+		Joins(`JOIN prescriptions AS p ON p.id = s.prescription_id`).
+		Joins(`LEFT JOIN exercises AS e ON e.id = p.exercise_id`).
+		Where("s.session_id = ?", sessionID).
+		Order("s.set_index ASC, s.id ASC").
+		Scan(&rows).Error
 	return rows, err
 }
 
@@ -143,4 +163,26 @@ func (r *sessionRepository) GetSessionMeta(ctx context.Context, id string) (*Ses
 		return nil, gorm.ErrRecordNotFound
 	}
 	return &out, nil
+}
+
+func (r *sessionRepository) GetLatestOpenByDisciple(ctx context.Context, discipleID string) (*domain.SessionLog, error) {
+	var s domain.SessionLog
+	q := `
+	SELECT id, assignment_id, day_id, disciple_id, performed_at, notes, created_at, updated_at, status, ended_at
+	FROM session_logs
+	WHERE disciple_id = ?
+	  AND status = 'open'
+	ORDER BY performed_at DESC, created_at DESC
+	LIMIT 1;
+	`
+	if err := r.db.WithContext(ctx).Raw(q, discipleID).Scan(&s).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if s.ID == "" {
+		return nil, nil
+	}
+	return &s, nil
 }

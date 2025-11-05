@@ -35,6 +35,8 @@ export type DayPrescription = {
   equipment?: string | null
 }
 
+export type ProgramOption = { id: string; title: string; version: number }
+
 function pickStr(o: any, ...keys: string[]): string | undefined {
   for (const k of keys) if (o?.[k] != null && String(o[k]).trim() !== '') return String(o[k])
 }
@@ -194,4 +196,14 @@ export async function reorderPrescriptions(payload: { day_id: string; order: str
 
 export async function deleteProgram(id: string): Promise<void> {
   await api.delete(`/api/programs/${id}`)
+}
+
+export async function listProgramOptions(): Promise<ProgramOption[]> {
+  const res = await api.get('/api/programs') // ajusta si tu backend usa otro path/filtro
+  // Esperamos items con { id, title, version }. Adapta si cambia.
+  return (res.data?.items ?? res.data ?? []).map((p: any) => ({
+    id: p.id,
+    title: p.title ?? '(Sin título)',
+    version: Number(p.version ?? p.program_version ?? 1),
+  }))
 }

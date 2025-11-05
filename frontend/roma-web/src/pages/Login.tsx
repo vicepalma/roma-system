@@ -1,5 +1,5 @@
+import { useNavigate } from 'react-router-dom'
 import { useState, FormEvent } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
 import { login } from '@/services/auth'
 import useAuth from '@/store/auth'
 import { Button } from '@/components/ui/button'
@@ -9,15 +9,15 @@ import { Card } from '@/components/ui/card'
 import { CardHeader } from '@/components/ui/card-header'
 import { CardTitle } from '@/components/ui/card-title'
 import { CardContent } from '@/components/ui/card-content'
+import { Bus } from '@/lib/bus'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const navigate = useNavigate()
-  const location = useLocation() as any
   const { setTokens } = useAuth()
+  const navigate = useNavigate()
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -25,8 +25,8 @@ export default function Login() {
     try {
       const tokens = await login({ email, password })
       setTokens(tokens)
-      const to = location.state?.from?.pathname || '/dashboard'
-      navigate(to, { replace: true })
+      Bus.emit('auth:login')
+      navigate('/sessions', { replace: true })
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Credenciales inválidas o servidor no disponible'
       setError(msg)

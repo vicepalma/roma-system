@@ -103,6 +103,9 @@ CREATE TABLE assignments (
 );
 CREATE INDEX idx_assign_disciple ON assignments(disciple_id);
 CREATE INDEX idx_assign_program  ON assignments(program_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_assignments_active_per_disciple
+ON assignments (disciple_id)
+WHERE is_active = true;
 
 -- 5) Ejecución y logs
 CREATE TABLE IF NOT EXISTS session_logs (

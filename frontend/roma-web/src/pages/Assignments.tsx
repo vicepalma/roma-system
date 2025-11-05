@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/toast/ToastProvider'
 import { getCoachDisciples } from '@/services/coach'
-import { getCoachAssignments, createAssignment } from '@/services/assignments'
+import { getCoachAssignments, createAssignment, activateAssignment } from '@/services/assignments'
 import type { AssignmentListRow } from '@/types/assignments'
 import AssignmentForm from '@/components/forms/AssignmentForm'
+import { listProgramOptions, type ProgramOption } from '@/services/programs'
 
 function StatusBadge({ active }: { active: boolean }) {
   const cls = active
@@ -41,6 +42,12 @@ export default function Assignments() {
     staleTime: 30_000,
   })
 
+  const programsQ = useQuery({
+    queryKey: ['programs', 'options'],
+    queryFn: listProgramOptions,
+    staleTime: 60_000,
+  })
+
   useEffect(() => {
     if (disciplesQ.isError) show({ type: 'error', message: 'Error al cargar discípulos' })
   }, [disciplesQ.isError, show])
@@ -56,6 +63,18 @@ export default function Assignments() {
     },
     onError: () => show({ type: 'error', message: 'No se pudo crear la asignación' }),
   })
+
+  const mActivate = useMutation({
+    mutationFn: ({ id, discipleId }: { id: string; discipleId: string }) =>
+      activateAssignment(id, discipleId),
+    onSuccess: async () => {
+      show({ type: 'success', message: 'Programa activado' })
+      await qc.invalidateQueries({ queryKey: ['coach', 'assignments'] })
+      await qc.invalidateQueries({ queryKey: ['me', 'assignment', 'active'] })
+    },
+    onError: () => show({ type: 'error', message: 'No se pudo activar el programa' }),
+  })
+
 
   // Datos crudos
   const items: AssignmentListRow[] = assignmentsQ.data ?? []
@@ -108,6 +127,7 @@ export default function Assignments() {
         <div className="font-semibold mb-2">Nueva asignación</div>
         <AssignmentForm
           disciples={disciplesQ.data ?? []}
+          programs={programsQ.data ?? []}
           onSubmit={(vals) => createM.mutateAsync(vals)}
           submitting={createM.isPending}
         />
@@ -143,6 +163,7 @@ export default function Assignments() {
                 <th className="text-left px-4 py-2">Fin</th>
                 <th className="text-left px-4 py-2">Estado</th>
                 <th className="text-left px-4 py-2">ID</th>
+                <th className="text-left px-4 py-2">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -161,6 +182,17 @@ export default function Assignments() {
                   <td className="px-4 py-2">{fmtDate(a.end_date ?? null)}</td>
                   <td className="px-4 py-2"><StatusBadge active={a.is_active} /></td>
                   <td className="px-4 py-2 font-mono text-[11px]">{a.id}</td>
+                  <td className="px-4 py-2">
+                    <button
+                      disabled={a.is_active || mActivate.isPending}
+                      onClick={() => mActivate.mutate({ id: a.id, discipleId: a.disciple_id })}
+                      className={`text-xs rounded px-2 py-1 border dark:border-neutral-800 ${a.is_active ? 'opacity-60 cursor-default' : 'bg-white hover:bg-gray-50 dark:bg-neutral-900'
+                        }`}
+                      title={a.is_active ? 'Ya activo' : 'Activar este programa'}
+                    >
+                      {a.is_active ? 'Activo' : (mActivate.isPending ? 'Activando…' : 'Activar')}
+                    </button>
+                  </td>
                 </tr>
               ))}
               {rows.length === 0 && (

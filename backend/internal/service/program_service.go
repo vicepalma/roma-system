@@ -74,7 +74,7 @@ type ProgramService interface {
 	UpdateDay(ctx context.Context, dayID string, notes *string, dayIndex *int) (*repository.ProgramDay, error)
 	DeleteDay(ctx context.Context, dayID string) error
 
-	ListPrescriptions(ctx context.Context, dayID string) ([]repository.Prescription, error)
+	ListPrescriptions(ctx context.Context, dayID string) ([]repository.PrescriptionRow, error)
 	UpdatePrescription(ctx context.Context, id string, in UpdatePrescription) (*repository.Prescription, error)
 	DeletePrescription(ctx context.Context, id string) error
 	ReorderPrescriptions(ctx context.Context, dayID string, orderedIDs []string) error
@@ -253,7 +253,7 @@ func (s *programService) DeleteDay(ctx context.Context, dayID string) error {
 	return s.repo.DeleteDay(ctx, dayID)
 }
 
-func (s *programService) ListPrescriptions(ctx context.Context, dayID string) ([]repository.Prescription, error) {
+func (s *programService) ListPrescriptions(ctx context.Context, dayID string) ([]repository.PrescriptionRow, error) {
 	return s.repo.ListPrescriptions(ctx, dayID)
 }
 

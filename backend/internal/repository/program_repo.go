@@ -44,20 +44,38 @@ type ProgramDay struct {
 }
 
 type Prescription struct {
-	ID           string `gorm:"type:uuid;primaryKey"`
-	DayID        string `gorm:"type:uuid;index;not null"`
-	ExerciseID   string `gorm:"type:uuid;index;not null"`
-	Series       int    `gorm:"not null"`
-	Reps         string `gorm:"not null"`
-	RestSec      *int
-	ToFailure    bool
-	Tempo        *string
-	RIR          *int
-	RPE          *float32 `gorm:"type:numeric(3,1)"`
-	MethodID     *string  `gorm:"type:uuid"`
-	Notes        *string
-	Position     int    `gorm:"not null;default:1"`
-	ExerciseName string `gorm:"-"` // opc para joins
+	ID         string `gorm:"type:uuid;primaryKey"`
+	DayID      string `gorm:"type:uuid;index;not null"`
+	ExerciseID string `gorm:"type:uuid;index;not null"`
+	Series     int    `gorm:"not null"`
+	Reps       string `gorm:"not null"`
+	RestSec    *int
+	ToFailure  bool
+	Tempo      *string
+	RIR        *int
+	RPE        *float32 `gorm:"type:numeric(3,1)"`
+	MethodID   *string  `gorm:"type:uuid"`
+	Notes      *string
+	Position   int `gorm:"not null;default:1"`
+
+	Exercise Exercise `gorm:"foreignKey:ExerciseID;references:ID"`
+}
+
+type PrescriptionRow struct {
+	ID           string   `json:"id"`
+	DayID        string   `json:"day_id"`
+	ExerciseID   string   `json:"exercise_id"`
+	Series       int      `json:"series"`
+	Reps         string   `json:"reps"`
+	RestSec      *int     `json:"rest_sec,omitempty"`
+	ToFailure    bool     `json:"to_failure"`
+	Tempo        *string  `json:"tempo,omitempty"`
+	RIR          *int     `json:"rir,omitempty"`
+	RPE          *float32 `json:"rpe,omitempty"`
+	MethodID     *string  `json:"method_id,omitempty"`
+	Notes        *string  `json:"notes,omitempty"`
+	Position     int      `json:"position"`
+	ExerciseName string   `json:"exercise_name"`
 }
 
 type ProgramFilter struct {
@@ -109,7 +127,7 @@ type ProgramRepository interface {
 	DeleteWeek(ctx context.Context, programID, weekID string) error
 
 	// prescriptions
-	ListPrescriptions(ctx context.Context, dayID string) ([]Prescription, error)
+	ListPrescriptions(ctx context.Context, dayID string) ([]PrescriptionRow, error)
 	AddPrescription(ctx context.Context, p *domain.Prescription) error
 	UpdatePrescription(ctx context.Context, id string, patch map[string]any) (*Prescription, error)
 	DeletePrescription(ctx context.Context, id string) error
@@ -330,13 +348,36 @@ func (r *programRepository) DeleteDay(ctx context.Context, id string) error {
 }
 
 // prescriptions
-func (r *programRepository) ListPrescriptions(ctx context.Context, dayID string) ([]Prescription, error) {
-	var items []Prescription
-	return items, r.db.WithContext(ctx).
-		Model(&Prescription{}).
+func (r *programRepository) ListPrescriptions(ctx context.Context, dayID string) ([]PrescriptionRow, error) {
+	var rows []Prescription
+	if err := r.db.WithContext(ctx).
 		Where("day_id = ?", dayID).
+		Preload("Exercise").
 		Order("position ASC, id ASC").
-		Find(&items).Error
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	items := make([]PrescriptionRow, 0, len(rows))
+	for _, p := range rows {
+		items = append(items, PrescriptionRow{
+			ID:           p.ID,
+			DayID:        p.DayID,
+			ExerciseID:   p.ExerciseID,
+			Series:       p.Series,
+			Reps:         p.Reps,
+			RestSec:      p.RestSec,
+			ToFailure:    p.ToFailure,
+			Tempo:        p.Tempo,
+			RIR:          p.RIR,
+			RPE:          p.RPE,
+			MethodID:     p.MethodID,
+			Notes:        p.Notes,
+			Position:     p.Position,
+			ExerciseName: p.Exercise.Name, // 💡 aquí el nombre
+		})
+	}
+	return items, nil
 }
 
 func (r *programRepository) UpdatePrescription(ctx context.Context, id string, patch map[string]any) (*Prescription, error) {

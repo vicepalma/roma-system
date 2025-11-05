@@ -8,6 +8,7 @@ import (
 
 	"github.com/vicepalma/roma-system/backend/internal/domain"
 	"github.com/vicepalma/roma-system/backend/internal/repository"
+	"gorm.io/gorm"
 )
 
 type CalendarDay struct {
@@ -16,6 +17,8 @@ type CalendarDay struct {
 	Index int       `json:"day_index"`
 	Notes *string   `json:"notes,omitempty"`
 }
+
+var ErrAssignmentNotFound = errors.New("assignment_not_for_disciple")
 
 type CoachService interface {
 	CreateLink(ctx context.Context, coachID, discipleID string, autoAccept bool) (*domain.CoachLink, error)
@@ -32,11 +35,15 @@ type CoachService interface {
 
 	UpdateAssignment(ctx context.Context, id string, endDate *time.Time, isActive *bool) (*repository.AssignmentRow, error)
 	AssignmentCalendar(ctx context.Context, id string, from, to time.Time) ([]CalendarDay, error)
+	ActivateAssignment(ctx context.Context, discipleID, assignmentID string) error
+	GetActiveAssignment(ctx context.Context, discipleID string) (*domain.Assignment, error)
 }
 
 type coachService struct {
-	repo repository.CoachRepository
-	hist HistoryService
+	db     *gorm.DB
+	repo   repository.CoachRepository
+	hist   HistoryService
+	assign repository.AssignmentRepository
 }
 
 type CoachOverview struct {
@@ -52,8 +59,18 @@ type AdherenceResponse struct {
 	Rate          float64 `json:"rate"`
 }
 
-func NewCoachService(repo repository.CoachRepository, hist HistoryService) CoachService {
-	return &coachService{repo: repo, hist: hist}
+func NewCoachService(r repository.CoachRepository, hist HistoryService, opts ...any) CoachService {
+	var db *gorm.DB
+	var ar repository.AssignmentRepository
+	for _, o := range opts {
+		if v, ok := o.(*gorm.DB); ok {
+			db = v
+		}
+		if v, ok := o.(repository.AssignmentRepository); ok {
+			ar = v
+		}
+	}
+	return &coachService{db: db, repo: r, hist: hist, assign: ar}
 }
 
 func (s *coachService) CreateLink(ctx context.Context, coachID, discipleID string, autoAccept bool) (*domain.CoachLink, error) {
@@ -269,4 +286,43 @@ func (s *coachService) AssignmentCalendar(ctx context.Context, id string, from, 
 		idx = (idx + 1) % len(days)
 	}
 	return out, nil
+}
+
+func (s *coachService) ActivateAssignment(ctx context.Context, discipleID, assignmentID string) error {
+	// Verificar pertenencia primero
+	var count int64
+	if err := s.db.WithContext(ctx).
+		Table("assignments").
+		Where("id = ? AND disciple_id = ?", assignmentID, discipleID).
+		Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return ErrAssignmentNotFound
+	}
+
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Desactivar otros activos del discípulo
+		if err := tx.Table("assignments").
+			Where("disciple_id = ? AND is_active = TRUE AND id <> ?", discipleID, assignmentID).
+			Update("is_active", false).Error; err != nil {
+			return err
+		}
+
+		// Activar éste (y garantizar start_date si es NULL, limpiar end_date)
+		if err := tx.Table("assignments").
+			Where("id = ? AND disciple_id = ?", assignmentID, discipleID).
+			Updates(map[string]any{
+				"is_active":  true,
+				"end_date":   nil,
+				"start_date": gorm.Expr("COALESCE(start_date, CURRENT_DATE)"),
+			}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (s *coachService) GetActiveAssignment(ctx context.Context, discipleID string) (*domain.Assignment, error) {
+	return s.repo.GetActiveAssignment(ctx, discipleID)
 }

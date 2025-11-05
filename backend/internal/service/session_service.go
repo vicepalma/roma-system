@@ -44,7 +44,7 @@ type SetPatch struct {
 
 type SessionService interface {
 	Start(ctx context.Context, discipleID, assignmentID, dayID string, performedAt *time.Time, notes *string) (*domain.SessionLog, error)
-	Get(ctx context.Context, discipleID, sessionID string) (*domain.SessionLog, []domain.SetLog, []repository.CardioSegment, error)
+	Get(ctx context.Context, discipleID, sessionID string) (*domain.SessionLog, []domain.SetRow, []repository.CardioSegment, error)
 	AddSet(ctx context.Context, discipleID, sessionID, prescriptionID string, setIndex int, weight *float64, reps int, rpe *float32, toFailure bool) (*domain.SetLog, error)
 	AddCardio(ctx context.Context, discipleID, sessionID, modality string, minutes int, hrMin, hrMax *int, notes *string) (*repository.CardioSegment, error)
 	ListSets(ctx context.Context, actorID, sessionID string, prescriptionID *string, limit, offset int) ([]repositorySetLog, int64, error)
@@ -54,6 +54,8 @@ type SessionService interface {
 
 	UpdateSet(ctx context.Context, setID string, patch SetPatch) error
 	DeleteSet(ctx context.Context, setID string) error
+
+	GetActiveOpenSessionForMe(ctx context.Context, discipleID string) (*domain.SessionLog, error)
 }
 
 type sessionService struct {
@@ -85,7 +87,7 @@ func (s *sessionService) Start(ctx context.Context, discipleID, assignmentID, da
 	return sess, nil
 }
 
-func (s *sessionService) Get(ctx context.Context, discipleID, sessionID string) (*domain.SessionLog, []domain.SetLog, []repository.CardioSegment, error) {
+func (s *sessionService) Get(ctx context.Context, discipleID, sessionID string) (*domain.SessionLog, []domain.SetRow, []repository.CardioSegment, error) {
 	sess, err := s.repo.GetSession(ctx, sessionID, discipleID)
 	if err != nil {
 		return nil, nil, nil, err
@@ -272,4 +274,8 @@ func (s *sessionService) PatchSession(ctx context.Context, id string, performedA
 		}
 	}
 	return s.GetSession(ctx, id)
+}
+
+func (s *sessionService) GetActiveOpenSessionForMe(ctx context.Context, discipleID string) (*domain.SessionLog, error) {
+	return s.repo.GetLatestOpenByDisciple(ctx, discipleID)
 }
