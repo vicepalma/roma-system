@@ -13,6 +13,7 @@ import (
 	"github.com/vicepalma/roma-system/backend/internal/repository"
 	"github.com/vicepalma/roma-system/backend/internal/security"
 	"github.com/vicepalma/roma-system/backend/internal/service"
+	"gorm.io/gorm"
 )
 
 type assignReq struct {
@@ -25,6 +26,7 @@ type CoachHandler struct {
 	svc   service.CoachService
 	hist  service.HistoryService
 	users repository.UserRepository
+	db    *gorm.DB
 }
 
 type createInviteReq struct {
@@ -37,31 +39,33 @@ type createLinkReq struct {
 	AutoAccept bool   `json:"auto_accept"` // opcional (para pruebas)
 }
 
-func NewCoachHandler(svc service.CoachService, hist service.HistoryService, u repository.UserRepository) *CoachHandler {
-	return &CoachHandler{svc: svc, hist: hist, users: u}
+func NewCoachHandler(svc service.CoachService, hist service.HistoryService, u repository.UserRepository, db *gorm.DB) *CoachHandler {
+	return &CoachHandler{svc: svc, hist: hist, users: u, db: db}
 }
 
 func (h *CoachHandler) Register(r *gin.RouterGroup) {
 	grp := r.Group("/coach")
 	{
-		grp.POST("/links", h.createLink)
+		grp.POST("/links", security.RequireRole(h.db, "coach"), h.createLink)
 		grp.PATCH("/links/:id", h.updateLink)
 		grp.GET("/links", h.listLinks)
 
-		grp.GET("/disciples", h.listDisciples)
+		grp.GET("/disciples", security.RequireRole(h.db, "coach"), h.listDisciples)
 		grp.GET("/disciples/:id/today",
+			security.RequireRole(h.db, "coach"),
 			security.RequireCoachOf(h.svc, "id"),
 			h.getTodayForDisciple,
 		)
-		grp.POST("/assignments", h.assignProgram)
-		grp.GET("/assignments", h.listAssignments)
+		grp.POST("/assignments", security.RequireRole(h.db, "coach"), h.assignProgram)
+		grp.GET("/assignments", security.RequireRole(h.db, "coach"), h.listAssignments)
 		grp.GET("/disciples/:id/overview",
+			security.RequireRole(h.db, "coach"),
 			security.RequireCoachOf(h.svc, "id"),
 			h.getOverview,
 		)
-		grp.PATCH("/assignments/:id", h.patchAssignment)
-		grp.GET("/assignments/:id/calendar", h.assignmentCalendar)
-		grp.POST("/assignments/:id/activate", security.RequireCoachOfQuery(h.svc, "disciple_id"), h.activateAssignment)
+		grp.PATCH("/assignments/:id", security.RequireRole(h.db, "coach"), h.requireAssignmentAccess, h.patchAssignment)
+		grp.GET("/assignments/:id/calendar", h.requireAssignmentAccess, h.assignmentCalendar)
+		grp.POST("/assignments/:id/activate", h.requireAssignmentAccess, h.activateAssignment)
 		// grp.POST("/invitations", security.RequireCoachOfSelf(h.svc), h.createInvite) // o AuthRequired si no tienes rol
 		// grp.POST("/invitations/:code/accept", security.AuthRequired(), h.acceptInvite)
 	}
@@ -173,6 +177,15 @@ func (h *CoachHandler) assignProgram(c *gin.Context) {
 			return
 		}
 	}
+	ok, err := security.IsProgramOwner(h.db.WithContext(c.Request.Context()), coachID, req.ProgramID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusForbidden, gin.H{"error": "program_not_owned"})
+		return
+	}
 
 	row, err := h.svc.AssignProgram(c, coachID, req.DiscipleID, req.ProgramID, start)
 	if err != nil {
@@ -180,6 +193,19 @@ func (h *CoachHandler) assignProgram(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, row)
+}
+
+func (h *CoachHandler) requireAssignmentAccess(c *gin.Context) {
+	ok, err := security.CanAccessAssignment(h.db.WithContext(c.Request.Context()), security.UserID(c), c.Param("id"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	c.Next()
 }
 
 // @Summary Overview del discípulo (hoy + pivot + adherencia)

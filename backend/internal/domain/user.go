@@ -7,6 +7,7 @@ type User struct {
 	Email        string    `gorm:"type:citext;uniqueIndex;not null" json:"email"`
 	PasswordHash string    `gorm:"type:text;not null" json:"-"`
 	Name         string    `gorm:"type:text;not null" json:"name"`
+	Role         string    `gorm:"type:text;not null;default:'disciple'" json:"role"`
 	CreatedAt    time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }

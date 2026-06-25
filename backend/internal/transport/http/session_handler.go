@@ -8,11 +8,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/vicepalma/roma-system/backend/internal/security"
 	"github.com/vicepalma/roma-system/backend/internal/service"
+	"gorm.io/gorm"
 )
 
-type SessionHandler struct{ svc service.SessionService }
+type SessionHandler struct {
+	svc service.SessionService
+	db  *gorm.DB
+}
 
-func NewSessionHandler(s service.SessionService) *SessionHandler { return &SessionHandler{svc: s} }
+func NewSessionHandler(s service.SessionService, db *gorm.DB) *SessionHandler {
+	return &SessionHandler{svc: s, db: db}
+}
 
 func (h *SessionHandler) Register(r *gin.RouterGroup) {
 	r.POST("/sessions", h.start)           // crea sesión
@@ -53,6 +59,24 @@ func (h *SessionHandler) start(c *gin.Context) {
 		}
 		ts = &t
 	}
+	ok, err := security.IsAssignmentOwnedByDisciple(h.db.WithContext(c.Request.Context()), uid(c), body.AssignmentID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	ok, err = security.IsAssignmentDay(h.db.WithContext(c.Request.Context()), body.AssignmentID, body.DayID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "day_not_in_assignment"})
+		return
+	}
 	sess, err := h.svc.Start(c, uid(c), body.AssignmentID, body.DayID, ts, body.Notes)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "db_error", "detail": err.Error()})
@@ -63,7 +87,22 @@ func (h *SessionHandler) start(c *gin.Context) {
 
 func (h *SessionHandler) get(c *gin.Context) {
 	id := c.Param("id")
-	sess, sets, cardio, err := h.svc.Get(c, uid(c), id)
+	db := h.db.WithContext(c.Request.Context())
+	ok, err := security.CanAccessSession(db, uid(c), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	meta, err := h.svc.GetSession(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(404, gin.H{"error": "not_found"})
+		return
+	}
+	sess, sets, cardio, err := h.svc.Get(c, meta.DiscipleID, id)
 	if err != nil {
 		c.JSON(404, gin.H{"error": "not_found"})
 		return
@@ -86,6 +125,24 @@ func (h *SessionHandler) addSet(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "bad_request", "detail": err.Error()})
 		return
 	}
+	ok, err := security.IsSessionOwnedByDisciple(h.db.WithContext(c.Request.Context()), uid(c), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	ok, err = security.IsPrescriptionInSessionDay(h.db.WithContext(c.Request.Context()), id, body.PrescriptionID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "prescription_not_in_session_day"})
+		return
+	}
 	row, err := h.svc.AddSet(c, uid(c), id, body.PrescriptionID, body.SetIndex, body.Weight, body.Reps, body.RPE, body.ToFailure)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "db_error", "detail": err.Error()})
@@ -106,6 +163,15 @@ func (h *SessionHandler) addCardio(c *gin.Context) {
 	var body req
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(400, gin.H{"error": "bad_request"})
+		return
+	}
+	ok, err := security.IsSessionOwnedByDisciple(h.db.WithContext(c.Request.Context()), uid(c), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}
 	seg, err := h.svc.AddCardio(c, uid(c), id, body.Modality, body.Minutes, body.HRMin, body.HRMax, body.Notes)
@@ -176,6 +242,15 @@ func (h *SessionHandler) GetSets(c *gin.Context) {
 func (h *SessionHandler) deleteSet(c *gin.Context) {
 	_ = c.Param("id")
 	setID := c.Param("setId")
+	ok, err := security.IsSetOwnedByDisciple(h.db.WithContext(c.Request.Context()), uid(c), setID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
 	if err := h.svc.DeleteSet(c.Request.Context(), setID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot_delete"})
 		return
@@ -185,6 +260,15 @@ func (h *SessionHandler) deleteSet(c *gin.Context) {
 
 func (h *SessionHandler) patchSession(c *gin.Context) {
 	id := c.Param("id")
+	ok, err := security.IsSessionOwnedByDisciple(h.db.WithContext(c.Request.Context()), uid(c), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
 	var body struct {
 		PerformedAt *string `json:"performed_at"` // ISO8601
 		Notes       *string `json:"notes"`

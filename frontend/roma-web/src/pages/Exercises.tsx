@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { listExercises, createExercise, updateExercise, deleteExercise } from '@/services/exercises'
 import type { Exercise } from '@/types/exercises'
+import useAuth from '@/store/auth'
 
 export default function Exercises() {
   const { show } = useToast()
@@ -13,6 +14,7 @@ export default function Exercises() {
   const [openCreate, setOpenCreate] = useState(false)
   const [edit, setEdit] = useState<Exercise | null>(null)
   const [q, setQ] = useState('')
+  const canManageExercises = useAuth(s => s.user?.role === 'coach')
 
   const listQ = useQuery({
     queryKey: ['exercises', 'list'],
@@ -92,12 +94,14 @@ export default function Exercises() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Ejercicios</h2>
-        <button
-          onClick={() => setOpenCreate(true)}
-          className="text-sm rounded px-3 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
-        >
-          Nuevo ejercicio
-        </button>
+        {canManageExercises && (
+          <button
+            onClick={() => setOpenCreate(true)}
+            className="text-sm rounded px-3 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+          >
+            Nuevo ejercicio
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
@@ -130,20 +134,22 @@ export default function Exercises() {
                   {e.notes ?? '—'}
                 </td>
                 <td className="px-4 py-2 text-right">
-                  <div className="inline-flex items-center gap-2">
-                    <button
-                      onClick={() => setEdit(e)}
-                      className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => deleteM.mutate(e.id)}
-                      className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-red-600"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
+                  {canManageExercises && (
+                    <div className="inline-flex items-center gap-2">
+                      <button
+                        onClick={() => setEdit(e)}
+                        className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => deleteM.mutate(e.id)}
+                        className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-red-600"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
@@ -155,7 +161,7 @@ export default function Exercises() {
       </div>
 
       {/* Modal crear */}
-      <Modal open={openCreate} onClose={() => setOpenCreate(false)} title="Nuevo ejercicio">
+      <Modal open={canManageExercises && openCreate} onClose={() => setOpenCreate(false)} title="Nuevo ejercicio">
         <ExerciseForm
           onCancel={() => setOpenCreate(false)}
           onSubmit={(vals) => createM.mutateAsync(vals)}
@@ -164,8 +170,8 @@ export default function Exercises() {
       </Modal>
 
       {/* Modal editar */}
-      <Modal open={!!edit} onClose={() => setEdit(null)} title={`Editar — ${edit?.name ?? ''}`}>
-        {edit && (
+      <Modal open={canManageExercises && !!edit} onClose={() => setEdit(null)} title={`Editar — ${edit?.name ?? ''}`}>
+        {canManageExercises && edit && (
           <ExerciseForm
             defaultValues={edit}
             onCancel={() => setEdit(null)}

@@ -36,7 +36,7 @@ type signupReq struct {
 	Email    string `json:"email" binding:"required,email"`
 	Name     string `json:"name" binding:"required"`
 	Password string `json:"password" binding:"required,min=6"`
-	Role     string `json:"role"` // coach|disciple (hint – no se persiste en BD)
+	Role     string `json:"role"` // coach|disciple
 }
 
 func (h *AuthHandler) Register(r *gin.RouterGroup) {
@@ -67,6 +67,7 @@ func (h *AuthHandler) register(c *gin.Context) {
 		Name:         strings.TrimSpace(req.Name),
 		Email:        strings.ToLower(strings.TrimSpace(req.Email)),
 		PasswordHash: hash,
+		Role:         "disciple",
 	}
 	if err := h.users.Create(c.Request.Context(), u); err != nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "email_in_use"})
@@ -78,7 +79,7 @@ func (h *AuthHandler) register(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{
-		"user":   gin.H{"id": u.ID, "name": u.Name, "email": u.Email},
+		"user":   gin.H{"id": u.ID, "name": u.Name, "email": u.Email, "role": u.Role},
 		"tokens": tokens,
 	})
 }
@@ -95,10 +96,12 @@ func (h *AuthHandler) signup(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "hash_error"})
 		return
 	}
+	role := normalizeSignupRole(req.Role)
 	u := &domain.User{
 		Name:         strings.TrimSpace(req.Name),
 		Email:        strings.ToLower(strings.TrimSpace(req.Email)),
 		PasswordHash: hash,
+		Role:         role,
 	}
 	if err := h.users.Create(c.Request.Context(), u); err != nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "email_in_use"})
@@ -110,7 +113,7 @@ func (h *AuthHandler) signup(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"user":          gin.H{"id": u.ID, "email": u.Email, "name": u.Name},
+		"user":          gin.H{"id": u.ID, "email": u.Email, "name": u.Name, "role": u.Role},
 		"access_token":  tokens.AccessToken,
 		"refresh_token": tokens.RefreshToken,
 	})
@@ -141,7 +144,7 @@ func (h *AuthHandler) login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "token_error"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"user": gin.H{"id": u.ID, "name": u.Name, "email": u.Email}, "tokens": tokens})
+	c.JSON(http.StatusOK, gin.H{"user": gin.H{"id": u.ID, "name": u.Name, "email": u.Email, "role": u.Role}, "tokens": tokens})
 }
 
 func (h *AuthHandler) refresh(c *gin.Context) {
@@ -193,23 +196,19 @@ func (h *AuthHandler) me(c *gin.Context) {
 		return
 	}
 
-	// Deriva el rol en base a tu esquema actual (sin columnas nuevas)
-	var role string
-	err = h.db.WithContext(c.Request.Context()).Raw(`
-		SELECT CASE
-			WHEN EXISTS (SELECT 1 FROM coach_links cl WHERE cl.coach_id = ? AND cl.status = 'accepted') THEN 'coach'
-			WHEN EXISTS (SELECT 1 FROM programs p WHERE p.owner_id = ?) THEN 'coach'
-			ELSE 'disciple'
-		END AS role;
-	`, uid, uid).Row().Scan(&role)
-	if err != nil || role == "" {
-		role = "disciple"
-	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"id":    u.ID,
 		"email": u.Email,
 		"name":  u.Name,
-		"role":  role,
+		"role":  u.Role,
 	})
+}
+
+func normalizeSignupRole(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "coach":
+		return "coach"
+	default:
+		return "disciple"
+	}
 }

@@ -38,8 +38,6 @@ var SwaggerInfo = &swag.Spec{
 	Description:      "API para gestión de ejercicios, programas, sesiones y modo maestro.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
-	LeftDelim:        "{{",
-	RightDelim:       "}}",
 }
 
 func init() {

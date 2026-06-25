@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useState, FormEvent } from 'react'
-import { login } from '@/services/auth'
+import { getMe, login } from '@/services/auth'
 import useAuth from '@/store/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,7 +16,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { setTokens } = useAuth()
+  const { setTokens, setUser } = useAuth()
   const navigate = useNavigate()
 
   async function onSubmit(e: FormEvent) {
@@ -25,6 +25,7 @@ export default function Login() {
     try {
       const tokens = await login({ email, password })
       setTokens(tokens)
+      setUser(await getMe())
       Bus.emit('auth:login')
       navigate('/sessions', { replace: true })
     } catch (err: any) {

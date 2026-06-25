@@ -11,6 +11,7 @@ import (
 	"github.com/vicepalma/roma-system/backend/internal/domain"
 	"github.com/vicepalma/roma-system/backend/internal/security"
 	"github.com/vicepalma/roma-system/backend/internal/service"
+	"gorm.io/gorm"
 )
 
 type addPrescriptionReq struct {
@@ -22,41 +23,59 @@ type addPrescriptionReq struct {
 	Position   *int   `json:"position,omitempty"`
 }
 
-type ProgramHandler struct{ svc service.ProgramService }
+type ProgramHandler struct {
+	svc service.ProgramService
+	db  *gorm.DB
+}
 
-func NewProgramHandler(s service.ProgramService) *ProgramHandler { return &ProgramHandler{svc: s} }
+func NewProgramHandler(s service.ProgramService, db *gorm.DB) *ProgramHandler {
+	return &ProgramHandler{svc: s, db: db}
+}
 
 func (h *ProgramHandler) Register(r *gin.RouterGroup) {
 	g := r.Group("/programs")
 	{
-		g.GET("", h.listMine)             // GET /programs
-		g.POST("", h.createProgram)       // POST /programs
-		g.GET("/:id", h.get)              // GET /programs/:id
-		g.PUT("/:id", h.update)           // PUT /programs/:id
-		g.DELETE("/:id", h.delete)        // DELETE /programs/:id
-		g.POST("/:id/version", h.version) // POST /programs/:id/version
-		g.GET("/:id/versions", h.versions)
+		g.GET("", h.listMine)                                            // GET /programs
+		g.POST("", security.RequireRole(h.db, "coach"), h.createProgram) // POST /programs
+		g.GET("/:id", h.requireProgramReadable, h.get)                   // GET /programs/:id
+		g.PUT("/:id", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.update)
+		g.DELETE("/:id", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.delete)
+		g.POST("/:id/version", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.version)
+		g.GET("/:id/versions", security.RequireProgramOwner(h.db, "id"), h.versions)
 
-		g.POST("/:id/weeks", h.addWeek)
-		g.GET("/:id/weeks", h.listWeeks)
-		g.POST("/:id/weeks/:weekId/days", h.addDay)
+		g.POST("/:id/weeks", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.addWeek)
+		g.GET("/:id/weeks", h.requireProgramReadable, h.listWeeks)
+		g.POST("/:id/weeks/:weekId/days", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.addDay)
 		g.GET("/:id/weeks/:weekId/days", h.listDays)
-		g.PUT("/:id/weeks/:weekId/days/:dayId", h.updateDay)
-		g.DELETE("/:id/weeks/:weekId/days/:dayId", h.deleteDay)
+		g.PUT("/:id/weeks/:weekId/days/:dayId", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.updateDay)
+		g.DELETE("/:id/weeks/:weekId/days/:dayId", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.deleteDay)
 
-		g.GET("/programs/:id/weeks/:weekId/days", h.listDays)
-		g.PUT("/programs/:id/weeks/:weekId/days/:dayId", h.updateDay)
-		g.DELETE("/programs/:id/weeks/:weekId/days/:dayId", h.deleteDay)
+		g.GET("/programs/:id/weeks/:weekId/days", h.requireProgramReadable, h.listDays)
+		g.PUT("/programs/:id/weeks/:weekId/days/:dayId", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.updateDay)
+		g.DELETE("/programs/:id/weeks/:weekId/days/:dayId", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.deleteDay)
 
 		// Prescripciones
-		g.GET("/days/:dayId/prescriptions", h.listPresc)
-		g.POST("/days/:dayId/prescriptions", h.addPrescription)
-		g.PUT("/prescriptions/:id", h.updatePresc)
-		g.DELETE("/prescriptions/:id", h.deletePresc)
-		g.PATCH("/prescriptions/reorder", h.reorderPresc)
-		g.DELETE("/:id/weeks/:weekId", h.deleteWeek)
+		g.GET("/days/:dayId/prescriptions", security.RequireDayReadable(h.db, "dayId"), h.listPresc)
+		g.POST("/days/:dayId/prescriptions", security.RequireRole(h.db, "coach"), security.RequireProgramOwnerByDay(h.db, "dayId"), h.addPrescription)
+		g.PUT("/prescriptions/:id", security.RequireRole(h.db, "coach"), security.RequireProgramOwnerByPrescription(h.db, "id"), h.updatePresc)
+		g.DELETE("/prescriptions/:id", security.RequireRole(h.db, "coach"), security.RequireProgramOwnerByPrescription(h.db, "id"), h.deletePresc)
+		g.PATCH("/prescriptions/reorder", security.RequireRole(h.db, "coach"), h.reorderPresc)
+		g.DELETE("/:id/weeks/:weekId", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.deleteWeek)
 	}
 
+}
+
+func (h *ProgramHandler) requireProgramReadable(c *gin.Context) {
+	ok, err := security.IsProgramReadable(h.db.WithContext(c.Request.Context()), userID(c), c.Param("id"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	c.Next()
 }
 
 func userID(c *gin.Context) string {
@@ -362,6 +381,15 @@ func (h *ProgramHandler) reorderPresc(c *gin.Context) {
 	var b body
 	if err := c.ShouldBindJSON(&b); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request"})
+		return
+	}
+	ok, err := security.IsProgramOwnerByDay(h.db.WithContext(c.Request.Context()), userID(c), b.DayID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}
 	if err := h.svc.ReorderPrescriptions(c.Request.Context(), b.DayID, b.Order); err != nil {

@@ -114,8 +114,6 @@ export async function addWeek(programId: string, payload: { week_index: number; 
   return data
 }
 export async function deleteWeek(programId: string, weekId: string): Promise<void> {
-  console.log(programId)
-  console.log(weekId)
   await api.delete(`/api/programs/${programId}/weeks/${weekId}`)
 }
 

@@ -4,11 +4,12 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import useAuth from '@/store/auth'
 import { useToast } from '@/components/toast/ToastProvider'
 import { Bus } from '@/lib/bus'
+import { getMe } from '@/services/auth'
 
 export default function AuthEvents() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const { isAuthenticated, logout } = useAuth()
+  const { isAuthenticated, logout, user, setUser } = useAuth()
   const { show } = useToast()
 
   // LOGOUT
@@ -36,6 +37,14 @@ export default function AuthEvents() {
       setTimeout(() => navigate('/sessions', { replace: true }), 0)
     }
   }, [isAuthenticated, pathname, navigate])
+
+  useEffect(() => {
+    if (!isAuthenticated || user) return
+    getMe().then(setUser).catch(() => {
+      logout()
+      setTimeout(() => navigate('/auth/login', { replace: true }), 0)
+    })
+  }, [isAuthenticated, user, setUser, logout, navigate])
 
   // Refresh token falló
   useEffect(() => {

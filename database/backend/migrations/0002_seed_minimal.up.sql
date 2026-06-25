@@ -1,10 +1,8 @@
 BEGIN;
 
--- ===== Hash para "1234" (mismo de tus seeds) =====
--- $2a$10$PbvWZsbmMSbPSH5hQLm5peE4AB7p0RhxT6QEBjtkPC3T0UPq2Up5i
+-- ===== Password: 'secret123' (Argon2id compatible con backend) =====
 WITH cfg AS (
-  -- Genera dinámicamente un hash bcrypt para la contraseña 'secret123' (cost = 10)
-  SELECT crypt('secret123', gen_salt('bf', 10))::text AS ph
+  SELECT '$argon2id$v=19$m=65536,t=1,p=8$CJcnBbz7AoJRdZslhgpJxg$gTVT+6YGG2M4r87dLvbfIAY1inQx1MqP0v1/qLcKHjk'::text AS ph
 )
 
 -- ===== Usuarios: maestros y discípulos =====
@@ -27,6 +25,27 @@ SELECT * FROM (
   SELECT 'jack.hanma@example.example',     (SELECT ph FROM cfg), 'Jack Hanma'
 ) AS u(email,password_hash,name)
 ON CONFLICT (email) DO NOTHING;
+
+UPDATE users
+SET role = CASE
+  WHEN email IN (
+    'roshi@kamehouse.example',
+    'baki.hanma@example.example',
+    'ikki@saint.example'
+  ) THEN 'coach'
+  ELSE 'disciple'
+END
+WHERE email IN (
+  'roshi@kamehouse.example',
+  'baki.hanma@example.example',
+  'ikki@saint.example',
+  'krillin@kamehouse.example',
+  'yamcha@capsule.example',
+  'goku@capsule.example',
+  'retsu@shinshinkai.example',
+  'katsumi@shinshinkai.example',
+  'jack.hanma@example.example'
+);
 
 -- ===== Vínculos maestro–discípulo (fix alias) =====
 WITH u AS (
@@ -94,8 +113,13 @@ weeks AS (
   RETURNING id, program_id
 ),
 days AS (
-  INSERT INTO program_days (week_id, day_index, notes)
+  INSERT INTO program_days (week_id, day_index, title, notes)
   SELECT w.id, 1,
+         CASE
+           WHEN p.title ILIKE '%Kame%'        THEN 'Pecho/Hombro'
+           WHEN p.title ILIKE '%Shinshinkai%' THEN 'Full body A'
+           ELSE 'Auto día 1'
+         END,
          CASE
            WHEN p.title ILIKE '%Kame%'        THEN 'Pecho/Hombro'
            WHEN p.title ILIKE '%Shinshinkai%' THEN 'Full body A'
@@ -134,8 +158,16 @@ WHERE NOT EXISTS (
 );
 
 -- 2) Asegura que cada week 1 tenga day 1
-INSERT INTO program_days (week_id, day_index, notes)
+INSERT INTO program_days (week_id, day_index, title, notes)
 SELECT w.id, 1, COALESCE(
+  (SELECT CASE
+           WHEN pr.title ILIKE '%Kame%'        THEN 'Pecho/Hombro'
+           WHEN pr.title ILIKE '%Shinshinkai%' THEN 'Full body A'
+           ELSE 'Auto día 1'
+         END
+   FROM programs pr WHERE pr.id = w.program_id),
+  'Auto día 1'
+), COALESCE(
   (SELECT CASE
            WHEN pr.title ILIKE '%Kame%'        THEN 'Pecho/Hombro'
            WHEN pr.title ILIKE '%Shinshinkai%' THEN 'Full body A'

@@ -70,17 +70,7 @@ func (r *authRepository) GetUserBasic(ctx context.Context, userID string) (*User
 }
 
 func (r *authRepository) DeriveRole(ctx context.Context, userID string) (string, error) {
-	// coach si:
-	// - tiene links como coach aceptados, o
-	// - tiene programas creados
-	const q = `
-SELECT
-  CASE
-    WHEN EXISTS (SELECT 1 FROM coach_links cl WHERE cl.coach_id = $1 AND cl.status = 'accepted') THEN 'coach'
-    WHEN EXISTS (SELECT 1 FROM programs p WHERE p.owner_id = $1) THEN 'coach'
-    ELSE 'disciple'
-  END AS role;
-`
+	const q = `SELECT role FROM users WHERE id = $1 LIMIT 1;`
 	var role string
 	if err := r.db.WithContext(ctx).Raw(q, userID).Row().Scan(&role); err != nil {
 		return "", err

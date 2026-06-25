@@ -9,18 +9,20 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/vicepalma/roma-system/backend/internal/security"
 	"github.com/vicepalma/roma-system/backend/internal/service"
+	"gorm.io/gorm"
 )
 
 type HistoryHandler struct {
 	svc   service.HistoryService
 	defTz string
+	db    *gorm.DB
 }
 
-func NewHistoryHandler(s service.HistoryService, defaultTZ string) *HistoryHandler {
+func NewHistoryHandler(s service.HistoryService, defaultTZ string, db *gorm.DB) *HistoryHandler {
 	if defaultTZ == "" {
 		defaultTZ = "UTC"
 	}
-	return &HistoryHandler{svc: s, defTz: defaultTZ}
+	return &HistoryHandler{svc: s, defTz: defaultTZ, db: db}
 }
 
 func (h *HistoryHandler) Register(r *gin.RouterGroup) {
@@ -49,6 +51,9 @@ func (h *HistoryHandler) history(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "disciple_id_required"})
 		return
 	}
+	if !h.canReadDisciple(c, discipleID) {
+		return
+	}
 	group := c.DefaultQuery("group", "session")
 	tz := c.DefaultQuery("tz", h.defTz)
 
@@ -65,6 +70,9 @@ func (h *HistoryHandler) history(c *gin.Context) {
 
 func (h *HistoryHandler) sessions(c *gin.Context) {
 	discipleID := c.Param("id")
+	if !h.canReadDisciple(c, discipleID) {
+		return
+	}
 	tz := c.DefaultQuery("tz", h.defTz)
 	from, to := parseDates(c.Query("from")), parseDates(c.Query("to"))
 	limit, offset := parsePag(c.DefaultQuery("limit", "50")), parsePag(c.DefaultQuery("offset", "0"))
@@ -79,6 +87,9 @@ func (h *HistoryHandler) sessions(c *gin.Context) {
 
 func (h *HistoryHandler) planVsDone(c *gin.Context) {
 	discipleID := c.Param("id")
+	if !h.canReadDisciple(c, discipleID) {
+		return
+	}
 	tz := c.DefaultQuery("tz", h.defTz)
 	from, to := parseDates(c.Query("from")), parseDates(c.Query("to"))
 	limit, offset := parsePag(c.DefaultQuery("limit", "50")), parsePag(c.DefaultQuery("offset", "0"))
@@ -89,6 +100,19 @@ func (h *HistoryHandler) planVsDone(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"items": data, "total": total, "limit": limit, "offset": offset})
+}
+
+func (h *HistoryHandler) canReadDisciple(c *gin.Context, discipleID string) bool {
+	ok, err := security.CanAccessDisciple(h.db.WithContext(c.Request.Context()), security.UserID(c), discipleID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return false
+	}
+	if !ok {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return false
+	}
+	return true
 }
 
 func (h *HistoryHandler) summary(c *gin.Context) {

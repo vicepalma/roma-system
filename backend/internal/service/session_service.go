@@ -26,6 +26,7 @@ type repositorySetLog = struct {
 type SessionDetail struct {
 	ID           string     `json:"id"`
 	AssignmentID string     `json:"assignment_id"`
+	DiscipleID   string     `json:"disciple_id"`
 	DayID        string     `json:"day_id"`
 	StartedAt    time.Time  `json:"started_at"` // = performed_at
 	Status       string     `json:"status"`
@@ -226,6 +227,7 @@ func (s *sessionService) GetSession(ctx context.Context, id string) (*SessionDet
 	return &SessionDetail{
 		ID:           meta.ID,
 		AssignmentID: meta.AssignmentID,
+		DiscipleID:   meta.DiscipleID,
 		DayID:        meta.DayID,
 		StartedAt:    meta.PerformedAt,
 		Status:       meta.Status,

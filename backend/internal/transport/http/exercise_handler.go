@@ -7,23 +7,28 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/vicepalma/roma-system/backend/internal/repository"
+	"github.com/vicepalma/roma-system/backend/internal/security"
 	"github.com/vicepalma/roma-system/backend/internal/service"
+	"gorm.io/gorm"
 )
 
 type ExerciseHandler struct {
 	svc service.ExerciseService
+	db  *gorm.DB
 }
 
-func NewExerciseHandler(s service.ExerciseService) *ExerciseHandler { return &ExerciseHandler{svc: s} }
+func NewExerciseHandler(s service.ExerciseService, db *gorm.DB) *ExerciseHandler {
+	return &ExerciseHandler{svc: s, db: db}
+}
 
 func (h *ExerciseHandler) Register(r *gin.RouterGroup) {
 	g := r.Group("/exercises")
 	{
 		g.GET("", h.list)
-		g.POST("", h.create)
+		g.POST("", security.RequireRole(h.db, "coach"), h.create)
 		g.GET("/:id", h.get)
-		g.PUT("/:id", h.update)
-		g.DELETE("/:id", h.delete)
+		g.PUT("/:id", security.RequireRole(h.db, "coach"), h.update)
+		g.DELETE("/:id", security.RequireRole(h.db, "coach"), h.delete)
 	}
 }
 

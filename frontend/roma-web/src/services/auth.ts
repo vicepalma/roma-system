@@ -1,5 +1,5 @@
 import api from '@/lib/axios'
-import type { LoginRequest, LoginResponse, LoginApiResponse } from '@/types/auth'
+import type { AuthUser, LoginRequest, LoginResponse, LoginApiResponse } from '@/types/auth'
 
 function extractTokens(data: LoginApiResponse): LoginResponse {
   if ((data as any).tokens?.access && (data as any).tokens?.refresh) {
@@ -19,4 +19,9 @@ export async function login(payload: LoginRequest): Promise<LoginResponse> {
 export async function refreshTokens(refresh: string): Promise<LoginResponse> {
   const { data } = await api.post<LoginApiResponse>('/auth/refresh', { refresh })
   return extractTokens(data)
+}
+
+export async function getMe(): Promise<AuthUser> {
+  const { data } = await api.get<AuthUser>('/me')
+  return data
 }

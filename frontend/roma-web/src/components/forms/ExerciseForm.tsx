@@ -23,7 +23,7 @@ type Props = {
     equipment?: string | null
     notes?: string | null
     tags?: string[]
-  }) => void | Promise<void>
+  }) => void | Promise<unknown>
   onCancel: () => void
   submitting?: boolean
 }

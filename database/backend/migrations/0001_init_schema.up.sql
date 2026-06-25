@@ -8,6 +8,7 @@ CREATE TABLE users (
   email          CITEXT NOT NULL UNIQUE,
   password_hash  TEXT   NOT NULL,
   name           TEXT   NOT NULL,
+  role           TEXT   NOT NULL DEFAULT 'disciple' CHECK (role IN ('coach','disciple')),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );

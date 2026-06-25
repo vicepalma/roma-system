@@ -132,20 +132,20 @@ func main() {
 	exRepo := repository.NewExerciseRepository(db)
 	progRepo := repository.NewProgramRepository(db)
 	progSvc := service.NewProgramService(progRepo)
-	progH := httpHandlers.NewProgramHandler(progSvc)
+	progH := httpHandlers.NewProgramHandler(progSvc, db)
 
 	assignRepo := repository.NewAssignmentRepository(db)
 	histRepo := repository.NewHistoryRepository(db)
 	histSvc := service.NewHistoryService(histRepo)
-	histH := httpHandlers.NewHistoryHandler(histSvc, "")
+	histH := httpHandlers.NewHistoryHandler(histSvc, "", db)
 
 	coachRepo := repository.NewCoachRepository(db)
 	coachSvc := service.NewCoachService(coachRepo, histSvc, db, assignRepo)
-	coachH := httpHandlers.NewCoachHandler(coachSvc, histSvc, userRepo)
+	coachH := httpHandlers.NewCoachHandler(coachSvc, histSvc, userRepo, db)
 
 	sessRepo := sr.NewSessionRepository(db)
 	sessSvc := ss.NewSessionService(sessRepo, coachSvc)
-	sessH := sh.NewSessionHandler(sessSvc)
+	sessH := sh.NewSessionHandler(sessSvc, db)
 
 	healthH := httpHandlers.NewHealthHandler(db)
 
@@ -163,7 +163,7 @@ func main() {
 
 	// Servicio ejercicios
 	svc := service.NewExerciseService(exRepo)
-	exH := httpHandlers.NewExerciseHandler(svc)
+	exH := httpHandlers.NewExerciseHandler(svc, db)
 
 	// Rutas públicas
 	r.GET("/ping", func(c *gin.Context) { c.JSON(200, gin.H{"message": "pong"}) })
