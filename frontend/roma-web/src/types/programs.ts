@@ -4,6 +4,7 @@ export type Program = {
   title: string
   notes?: string | null
   visibility: string
+  kind?: 'coach_program' | 'self_training'
   version: number
   created_at?: string
   updated_at?: string
@@ -52,6 +53,7 @@ export type CreateProgram = {
   title: string
   notes?: string | null
   visibility?: string | null
+  kind?: 'coach_program' | 'self_training'
 }
 
 export type UpdateProgram = {

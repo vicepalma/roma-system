@@ -4,6 +4,7 @@ export type Program = {
   id: string
   title: string
   description?: string | null
+  kind?: 'coach_program' | 'self_training'
   version?: number
 }
 
@@ -89,7 +90,7 @@ export async function listMyPrograms() {
   const { data } = await api.get<{ items?: Program[] }>('/api/programs')
   return data.items ?? []
 }
-export async function createProgram(payload: { title: string; description?: string | null }) {
+export async function createProgram(payload: { title: string; description?: string | null; kind?: 'coach_program' | 'self_training' }) {
   const { data } = await api.post<Program>('/api/programs', payload)
   return data
 }
@@ -194,6 +195,13 @@ export async function reorderPrescriptions(payload: { day_id: string; order: str
 
 export async function deleteProgram(id: string): Promise<void> {
   await api.delete(`/api/programs/${id}`)
+}
+
+export async function createSelfAssignment(programId: string): Promise<{ id: string }> {
+  const { data } = await api.post(`/api/programs/${programId}/self-assignment`, {
+    start_date: new Date().toISOString().slice(0, 10),
+  })
+  return data
 }
 
 export async function listProgramOptions(): Promise<ProgramOption[]> {

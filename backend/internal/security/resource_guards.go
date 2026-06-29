@@ -80,10 +80,53 @@ func IsProgramOwner(db *gorm.DB, actorID, programID string) (bool, error) {
 	return count > 0, err
 }
 
+func ProgramKind(db *gorm.DB, programID string) (string, error) {
+	var kind string
+	err := db.Table("programs").Select("kind").Where("id = ?", programID).Scan(&kind).Error
+	if err != nil {
+		return "", err
+	}
+	if kind == "" {
+		return "", gorm.ErrRecordNotFound
+	}
+	return kind, nil
+}
+
+func IsProgramMutable(db *gorm.DB, actorID, programID string) (bool, error) {
+	role, err := RoleOf(db, actorID)
+	if err != nil {
+		return false, err
+	}
+	var count int64
+	switch role {
+	case "coach":
+		err = db.Table("programs").
+			Where("id = ? AND owner_id = ? AND kind = 'coach_program'", programID, actorID).
+			Count(&count).Error
+	case "disciple":
+		err = db.Table("programs").
+			Where("id = ? AND owner_id = ? AND kind = 'self_training'", programID, actorID).
+			Count(&count).Error
+	default:
+		return false, nil
+	}
+	return count > 0, err
+}
+
 func IsProgramReadable(db *gorm.DB, actorID, programID string) (bool, error) {
 	ok, err := IsProgramOwner(db, actorID, programID)
 	if err != nil || ok {
 		return ok, err
+	}
+	kind, err := ProgramKind(db, programID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	if kind == "self_training" {
+		return false, nil
 	}
 	var count int64
 	err = db.Table("assignments AS a").
@@ -102,6 +145,18 @@ func IsProgramOwnerByWeek(db *gorm.DB, actorID, weekID string) (bool, error) {
 	return count > 0, err
 }
 
+func IsProgramMutableByWeek(db *gorm.DB, actorID, weekID string) (bool, error) {
+	var programID string
+	err := db.Table("program_weeks").Select("program_id").Where("id = ?", weekID).Scan(&programID).Error
+	if err != nil {
+		return false, err
+	}
+	if programID == "" {
+		return false, nil
+	}
+	return IsProgramMutable(db, actorID, programID)
+}
+
 func IsProgramOwnerByDay(db *gorm.DB, actorID, dayID string) (bool, error) {
 	var count int64
 	err := db.Table("program_days AS d").
@@ -110,6 +165,22 @@ func IsProgramOwnerByDay(db *gorm.DB, actorID, dayID string) (bool, error) {
 		Where("d.id = ? AND p.owner_id = ?", dayID, actorID).
 		Count(&count).Error
 	return count > 0, err
+}
+
+func IsProgramMutableByDay(db *gorm.DB, actorID, dayID string) (bool, error) {
+	var programID string
+	err := db.Table("program_days AS d").
+		Select("w.program_id").
+		Joins("JOIN program_weeks w ON w.id = d.week_id").
+		Where("d.id = ?", dayID).
+		Scan(&programID).Error
+	if err != nil {
+		return false, err
+	}
+	if programID == "" {
+		return false, nil
+	}
+	return IsProgramMutable(db, actorID, programID)
 }
 
 func IsProgramOwnerByPrescription(db *gorm.DB, actorID, prescriptionID string) (bool, error) {
@@ -123,10 +194,40 @@ func IsProgramOwnerByPrescription(db *gorm.DB, actorID, prescriptionID string) (
 	return count > 0, err
 }
 
+func IsProgramMutableByPrescription(db *gorm.DB, actorID, prescriptionID string) (bool, error) {
+	var programID string
+	err := db.Table("prescriptions AS pr").
+		Select("w.program_id").
+		Joins("JOIN program_days d ON d.id = pr.day_id").
+		Joins("JOIN program_weeks w ON w.id = d.week_id").
+		Where("pr.id = ?", prescriptionID).
+		Scan(&programID).Error
+	if err != nil {
+		return false, err
+	}
+	if programID == "" {
+		return false, nil
+	}
+	return IsProgramMutable(db, actorID, programID)
+}
+
 func IsDayReadable(db *gorm.DB, actorID, dayID string) (bool, error) {
 	ok, err := IsProgramOwnerByDay(db, actorID, dayID)
 	if err != nil || ok {
 		return ok, err
+	}
+	var kind string
+	err = db.Table("program_days AS d").
+		Select("p.kind").
+		Joins("JOIN program_weeks w ON w.id = d.week_id").
+		Joins("JOIN programs p ON p.id = w.program_id").
+		Where("d.id = ?", dayID).
+		Scan(&kind).Error
+	if err != nil {
+		return false, err
+	}
+	if kind == "self_training" {
+		return false, nil
 	}
 	var count int64
 	err = db.Table("program_days AS d").
@@ -145,9 +246,23 @@ func RequireProgramOwner(db *gorm.DB, param string) gin.HandlerFunc {
 	}
 }
 
+func RequireProgramMutable(db *gorm.DB, param string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ok, err := IsProgramMutable(db.WithContext(c.Request.Context()), UserID(c), c.Param(param))
+		abortAccess(c, ok, err)
+	}
+}
+
 func RequireProgramOwnerByWeek(db *gorm.DB, param string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ok, err := IsProgramOwnerByWeek(db.WithContext(c.Request.Context()), UserID(c), c.Param(param))
+		abortAccess(c, ok, err)
+	}
+}
+
+func RequireProgramMutableByWeek(db *gorm.DB, param string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ok, err := IsProgramMutableByWeek(db.WithContext(c.Request.Context()), UserID(c), c.Param(param))
 		abortAccess(c, ok, err)
 	}
 }
@@ -159,9 +274,23 @@ func RequireProgramOwnerByDay(db *gorm.DB, param string) gin.HandlerFunc {
 	}
 }
 
+func RequireProgramMutableByDay(db *gorm.DB, param string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ok, err := IsProgramMutableByDay(db.WithContext(c.Request.Context()), UserID(c), c.Param(param))
+		abortAccess(c, ok, err)
+	}
+}
+
 func RequireProgramOwnerByPrescription(db *gorm.DB, param string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ok, err := IsProgramOwnerByPrescription(db.WithContext(c.Request.Context()), UserID(c), c.Param(param))
+		abortAccess(c, ok, err)
+	}
+}
+
+func RequireProgramMutableByPrescription(db *gorm.DB, param string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ok, err := IsProgramMutableByPrescription(db.WithContext(c.Request.Context()), UserID(c), c.Param(param))
 		abortAccess(c, ok, err)
 	}
 }

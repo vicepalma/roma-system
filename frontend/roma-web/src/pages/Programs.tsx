@@ -5,17 +5,21 @@ import {
   listMyPrograms, createProgram, type Program,
   listWeeks, addWeek, type ProgramWeek,
   listDays, addDay, deleteDay, type ProgramDay,
-  listPrescriptions, addPrescription, deletePrescription, deleteProgram, deleteWeek, type DayPrescription,
+  listPrescriptions, addPrescription, deletePrescription, deleteProgram, deleteWeek, createSelfAssignment, type DayPrescription,
 } from '@/services/programs'
 import Modal from '@/components/ui/Modal'
 import PrescriptionForm from '@/components/forms/PrescriptionForm'
 import clsx from 'clsx'
 import { listExercises } from '@/services/exercises'
 import type { Exercise } from '@/types/exercises'
+import useAuth from '@/store/auth'
+import { getMyActiveAssignment } from '@/services/assignments'
 
 export default function Programs() {
   const { show } = useToast()
   const qc = useQueryClient()
+  const role = useAuth(s => s.user?.role)
+  const isDisciple = role === 'disciple'
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null)
   const [selectedWeek, setSelectedWeek] = useState<ProgramWeek | null>(null)
   const [selectedDay, setSelectedDay] = useState<ProgramDay | null>(null)
@@ -26,6 +30,14 @@ export default function Programs() {
   const programsQ = useQuery({
     queryKey: ['programs', 'list', 'mine'],
     queryFn: listMyPrograms,
+  })
+
+  const activeAssignQ = useQuery({
+    queryKey: ['me', 'assignment', 'active'],
+    queryFn: getMyActiveAssignment,
+    enabled: isDisciple,
+    retry: false,
+    staleTime: 30_000,
   })
 
   // Al seleccionar programa, cargar semanas
@@ -78,11 +90,20 @@ export default function Programs() {
     onSuccess: async (p) => {
       await qc.invalidateQueries({ queryKey: ['programs', 'mine'] })
       setSelectedProgram(p)
-      show({ type: 'success', message: 'Programa creado' })
+      show({ type: 'success', message: isDisciple ? 'Rutina creada' : 'Programa creado' })
       setOpenNewProgram(false)
       await qc.invalidateQueries({ queryKey: ['programs'], exact: false, refetchType: 'active' })
     },
     onError: () => show({ type: 'error', message: 'No se pudo crear el programa' }),
+  })
+
+  const selfAssignM = useMutation({
+    mutationFn: (programId: string) => createSelfAssignment(programId),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['me', 'assignment', 'active'] })
+      show({ type: 'success', message: 'Rutina activada' })
+    },
+    onError: () => show({ type: 'error', message: 'No se pudo activar la rutina' }),
   })
 
   const delProgramM = useMutation({
@@ -207,7 +228,7 @@ export default function Programs() {
       {/* Columna izquierda: Programas */}
       <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="font-semibold">Programas</div>
+          <div className="font-semibold">{isDisciple ? 'Mis rutinas' : 'Programas'}</div>
           <button
             onClick={() => setOpenNewProgram(true)}
             className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
@@ -235,6 +256,9 @@ export default function Programs() {
                     }`}
                 >
                   {p.title}
+                  {isDisciple && activeAssignQ.data?.program_id === p.id && (
+                    <span className="ml-2 text-[11px] rounded border px-1 py-0.5">Activa</span>
+                  )}
                 </button>
 
                 <button
@@ -256,7 +280,7 @@ transition-colors duration-150"
           ))}
 
           {!programsQ.isLoading && (programsQ.data ?? []).length === 0 && (
-            <li className="text-xs text-gray-500">Sin programas</li>
+            <li className="text-xs text-gray-500">{isDisciple ? 'Sin rutinas' : 'Sin programas'}</li>
           )}
         </ul>
 
@@ -268,6 +292,16 @@ transition-colors duration-150"
         <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
           <div className="flex items-center justify-between">
             <div className="font-semibold">Semanas {selectedProgram ? `— ${selectedProgram.title}` : ''}</div>
+            <div className="flex items-center gap-2">
+            {selectedProgram && isDisciple && selectedProgram.kind === 'self_training' && (
+              <button
+                onClick={() => selfAssignM.mutate(selectedProgram.id)}
+                disabled={selfAssignM.isPending}
+                className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+              >
+                {activeAssignQ.data?.program_id === selectedProgram.id ? 'Rutina activa' : (selfAssignM.isPending ? 'Activando…' : 'Activar rutina')}
+              </button>
+            )}
             {selectedProgram && (
               <button
                 onClick={() => setOpenNewWeek(true)}
@@ -276,9 +310,10 @@ transition-colors duration-150"
                 Agregar semana
               </button>
             )}
+            </div>
           </div>
 
-          {!selectedProgram && <div className="text-sm text-gray-500">Selecciona o crea un programa</div>}
+          {!selectedProgram && <div className="text-sm text-gray-500">{isDisciple ? 'Selecciona o crea una rutina' : 'Selecciona o crea un programa'}</div>}
           {selectedProgram && weeksQ.isLoading && <div className="h-16 bg-gray-100 dark:bg-neutral-800 rounded" />}
           {selectedProgram && weeksQ.isError && <div className="text-red-600 text-sm">Error al cargar semanas</div>}
 
@@ -481,13 +516,17 @@ transition-colors duration-150"
       </div>
 
       {/* Modales */}
-      <Modal open={openNewProgram} onClose={() => setOpenNewProgram(false)} title="Nuevo programa">
+      <Modal open={openNewProgram} onClose={() => setOpenNewProgram(false)} title={isDisciple ? 'Nueva rutina' : 'Nuevo programa'}>
         <form
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault()
             const fd = new FormData(e.currentTarget as HTMLFormElement)
-            createProgramM.mutate({ title: String(fd.get('title') || ''), description: String(fd.get('description') || '') || null })
+            createProgramM.mutate({
+              title: String(fd.get('title') || ''),
+              description: String(fd.get('description') || '') || null,
+              kind: isDisciple ? 'self_training' : 'coach_program',
+            })
           }}
         >
           <label className="text-sm block">

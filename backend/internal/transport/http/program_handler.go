@@ -1,6 +1,7 @@
 package http
 
 import (
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -35,32 +36,33 @@ func NewProgramHandler(s service.ProgramService, db *gorm.DB) *ProgramHandler {
 func (h *ProgramHandler) Register(r *gin.RouterGroup) {
 	g := r.Group("/programs")
 	{
-		g.GET("", h.listMine)                                            // GET /programs
-		g.POST("", security.RequireRole(h.db, "coach"), h.createProgram) // POST /programs
-		g.GET("/:id", h.requireProgramReadable, h.get)                   // GET /programs/:id
-		g.PUT("/:id", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.update)
-		g.DELETE("/:id", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.delete)
+		g.GET("", h.listMine)                          // GET /programs
+		g.POST("", h.createProgram)                    // POST /programs
+		g.GET("/:id", h.requireProgramReadable, h.get) // GET /programs/:id
+		g.PUT("/:id", security.RequireProgramMutable(h.db, "id"), h.update)
+		g.DELETE("/:id", security.RequireProgramMutable(h.db, "id"), h.delete)
 		g.POST("/:id/version", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.version)
-		g.GET("/:id/versions", security.RequireProgramOwner(h.db, "id"), h.versions)
+		g.GET("/:id/versions", security.RequireProgramMutable(h.db, "id"), h.versions)
+		g.POST("/:id/self-assignment", h.createSelfAssignment)
 
-		g.POST("/:id/weeks", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.addWeek)
+		g.POST("/:id/weeks", security.RequireProgramMutable(h.db, "id"), h.addWeek)
 		g.GET("/:id/weeks", h.requireProgramReadable, h.listWeeks)
-		g.POST("/:id/weeks/:weekId/days", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.addDay)
-		g.GET("/:id/weeks/:weekId/days", h.listDays)
-		g.PUT("/:id/weeks/:weekId/days/:dayId", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.updateDay)
-		g.DELETE("/:id/weeks/:weekId/days/:dayId", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.deleteDay)
+		g.POST("/:id/weeks/:weekId/days", security.RequireProgramMutable(h.db, "id"), h.addDay)
+		g.GET("/:id/weeks/:weekId/days", h.requireProgramReadable, h.listDays)
+		g.PUT("/:id/weeks/:weekId/days/:dayId", security.RequireProgramMutable(h.db, "id"), h.updateDay)
+		g.DELETE("/:id/weeks/:weekId/days/:dayId", security.RequireProgramMutable(h.db, "id"), h.deleteDay)
 
 		g.GET("/programs/:id/weeks/:weekId/days", h.requireProgramReadable, h.listDays)
-		g.PUT("/programs/:id/weeks/:weekId/days/:dayId", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.updateDay)
-		g.DELETE("/programs/:id/weeks/:weekId/days/:dayId", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.deleteDay)
+		g.PUT("/programs/:id/weeks/:weekId/days/:dayId", security.RequireProgramMutable(h.db, "id"), h.updateDay)
+		g.DELETE("/programs/:id/weeks/:weekId/days/:dayId", security.RequireProgramMutable(h.db, "id"), h.deleteDay)
 
 		// Prescripciones
 		g.GET("/days/:dayId/prescriptions", security.RequireDayReadable(h.db, "dayId"), h.listPresc)
-		g.POST("/days/:dayId/prescriptions", security.RequireRole(h.db, "coach"), security.RequireProgramOwnerByDay(h.db, "dayId"), h.addPrescription)
-		g.PUT("/prescriptions/:id", security.RequireRole(h.db, "coach"), security.RequireProgramOwnerByPrescription(h.db, "id"), h.updatePresc)
-		g.DELETE("/prescriptions/:id", security.RequireRole(h.db, "coach"), security.RequireProgramOwnerByPrescription(h.db, "id"), h.deletePresc)
+		g.POST("/days/:dayId/prescriptions", security.RequireProgramMutableByDay(h.db, "dayId"), h.addPrescription)
+		g.PUT("/prescriptions/:id", security.RequireProgramMutableByPrescription(h.db, "id"), h.updatePresc)
+		g.DELETE("/prescriptions/:id", security.RequireProgramMutableByPrescription(h.db, "id"), h.deletePresc)
 		g.PATCH("/prescriptions/reorder", security.RequireRole(h.db, "coach"), h.reorderPresc)
-		g.DELETE("/:id/weeks/:weekId", security.RequireRole(h.db, "coach"), security.RequireProgramOwner(h.db, "id"), h.deleteWeek)
+		g.DELETE("/:id/weeks/:weekId", security.RequireProgramMutable(h.db, "id"), h.deleteWeek)
 	}
 
 }
@@ -101,18 +103,86 @@ func (h *ProgramHandler) createProgram(c *gin.Context) {
 	type req struct {
 		Title string  `json:"title" binding:"required,min=2"`
 		Notes *string `json:"notes"`
+		Kind  string  `json:"kind"`
 	}
 	var body req
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request", "detail": err.Error()})
 		return
 	}
-	p, err := h.svc.CreateProgram(c, userID(c), body.Title, body.Notes)
+	role, err := security.RoleOf(h.db.WithContext(c.Request.Context()), userID(c))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	kind := strings.TrimSpace(body.Kind)
+	if kind == "" {
+		kind = "coach_program"
+	}
+	switch role {
+	case "coach":
+		if kind != "coach_program" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
+	case "disciple":
+		if kind != "self_training" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
+	default:
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	p, err := h.svc.CreateProgramWithKind(c, userID(c), body.Title, body.Notes, kind)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "db_error", "detail": err.Error()})
 		return
 	}
 	c.JSON(http.StatusCreated, p)
+}
+
+func (h *ProgramHandler) createSelfAssignment(c *gin.Context) {
+	programID := c.Param("id")
+	ok, err := security.IsProgramMutable(h.db.WithContext(c.Request.Context()), userID(c), programID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	kind, err := security.ProgramKind(h.db.WithContext(c.Request.Context()), programID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if kind != "self_training" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	var body struct {
+		StartDate string `json:"start_date"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil && err != io.EOF {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request"})
+		return
+	}
+	var start time.Time
+	if body.StartDate != "" {
+		start, err = time.Parse("2006-01-02", body.StartDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request", "detail": "invalid start_date (YYYY-MM-DD)"})
+			return
+		}
+	}
+	a, err := h.svc.CreateSelfAssignment(c.Request.Context(), userID(c), programID, start)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot_self_assign", "detail": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, a)
 }
 
 func (h *ProgramHandler) listMine(c *gin.Context) {

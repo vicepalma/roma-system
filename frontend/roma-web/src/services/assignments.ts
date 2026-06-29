@@ -41,7 +41,11 @@ export async function activateAssignment(assignmentId: string, discipleId: strin
 }
 
 export async function getMyActiveAssignment(): Promise<MyActiveAssignment | null> {
-  const { data } = await api.get('/api/me/assignment/active')
-  // Si el usuario no tiene activo, backend podría devolver 204/404/{}.
-  return data?.id ? (data as MyActiveAssignment) : null
+  try {
+    const { data } = await api.get('/api/me/assignment/active')
+    return data?.id ? (data as MyActiveAssignment) : null
+  } catch (err: any) {
+    if (err?.response?.status === 404) return null
+    throw err
+  }
 }

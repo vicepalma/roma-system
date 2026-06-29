@@ -1,16 +1,17 @@
 # ROMA Dev Log
 
 ## Estado actual
-- Fase actual: Fase 1 base minima aplicada.
-- Objetivo actual: roles persistentes y guards backend enforceables.
-- Ultimo checkpoint completado: CHK-004 - Roles, ownership y guards minimos.
-- Proximo checkpoint: CHK-005 - ampliar cobertura de permisos y pruebas automatizadas.
+- Fase actual: Fase 1 self-training endurecido.
+- Objetivo actual: una sola rutina propia activa por disciple sin afectar assignments de coach.
+- Ultimo checkpoint completado: CHK-008 - Endurecer activacion de self-training.
+- Proximo checkpoint: CHK-009 - cerrar gaps de ejecucion y UX de sesiones.
 
 ## Decisiones activas
 - [2026-06-24] Decision: no partir desde cero; rescatar repo con estabilizacion previa.
 - [2026-06-24] Decision: alinear migraciones oficiales con backend actual creando `coach_links` y `program_versions` en Fase 0.
 - [2026-06-24] Decision: activar `migrator` en Compose para DB limpia reproducible antes de backend.
 - [2026-06-25] Decision: `coach_links` queda como fuente operativa; `master_disciple` queda legacy/compatibilidad.
+- [2026-06-29] Decision: self-training usa `programs.kind='self_training'` y self-assignment propio; no usa self-link en `coach_links`.
 
 ## Checkpoints
 ### CHK-001 - Auditoria inicial
@@ -41,7 +42,35 @@ Resultado: ejercicios/programas/asignaciones/sesiones/historial tienen guards mi
 Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `npm run build`; `docker compose -p roma_chk004 -f database/docker-compose.yml up -d backend`.
 Validado manual: coach login OK, disciple login OK, disciple crear ejercicio 403, coach crear ejercicio 201, coach ajeno overview 403.
 
+### CHK-005 - Tests automatizados de permisos
+Estado: Completado
+Objetivo: cubrir roles, `/me`, ejercicios y guards criticos de ownership/acceso.
+Resultado: tests Go agregados para auth, permisos de ejercicios y helpers de guards sobre coach-disciple, programas, assignments, sesiones, sets y consistencia dia-prescripcion.
+Validado: `cd backend && GOCACHE=/tmp/roma-go-cache go test ./...`; `cd frontend/roma-web && npm run build`.
+Pendiente: agregar pruebas E2E/API con DB real para assignments, sesiones e historial cuando el setup de endpoints quede estable.
+
+### CHK-006 - Tests E2E/API backend con DB limpia
+Estado: Completado
+Objetivo: validar permisos reales con router, handlers, migraciones y seed controlado.
+Resultado: E2E con `ROMA_E2E_DB_URL` cubre auth, exercises, programs, assignments, sessions, sets e history; test normal salta si no hay DB.
+Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E`; `npm run build`.
+Pendiente: endpoint de editar set no existe; solo queda validado delete ajeno. Mantener DB E2E local, nunca productiva.
+
+### CHK-007 - Self-training minimo
+Estado: Completado
+Objetivo: disciple sin maestro crea rutina propia, agrega estructura, se auto-asigna y ejecuta sesion.
+Resultado: `programs.kind` distingue `coach_program`/`self_training`; guards permiten solo mutacion propia; E2E cubre rutina, self-assignment, sesion, set e historial.
+Validado: migraciones 0001-0005 en `roma_e2e`; `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
+Pendiente: manejar multiples self-assignments activos y mejorar UI de inicio/activacion.
+
+### CHK-008 - Endurecer activacion self-training
+Estado: Completado
+Objetivo: dejar solo una self-assignment activa por disciple sin tocar assignments de coach.
+Resultado: migracion `0006` reemplaza indice global por indice parcial de self-assignments; activacion reactiva/crea en transaccion y desactiva solo self-training previo.
+Validado: migraciones 0001-0006 en `roma_e2e`; `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
+Pendiente: impedir inicio de sesiones sobre assignments inactivos si se decide aplicar esa regla globalmente.
+
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
-- Agregar tests automatizados de permisos.
-- Revisar endpoints no cubiertos: invitaciones, check-ins futuros, self-training futuro.
+- Ampliar E2E cuando aparezcan endpoints de editar sets/check-ins.
+- Revisar endpoints no cubiertos: invitaciones, check-ins futuros.

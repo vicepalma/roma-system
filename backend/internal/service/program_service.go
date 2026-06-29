@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
@@ -52,6 +53,7 @@ type UpdatePrescription struct {
 
 type ProgramService interface {
 	CreateProgram(ctx context.Context, ownerID, title string, notes *string) (*domain.Program, error)
+	CreateProgramWithKind(ctx context.Context, ownerID, title string, notes *string, kind string) (*domain.Program, error)
 	ListMyPrograms(ctx context.Context, ownerID string, limit, offset int) ([]domain.Program, int64, error)
 	AddWeek(ctx context.Context, programID string, weekIndex int) (*domain.ProgramWeek, error)
 	DeleteWeek(ctx context.Context, programID, weekID string) error
@@ -83,6 +85,7 @@ type ProgramService interface {
 	UpdateProgram(ctx context.Context, id string, title *string, notes *string, visibility *string) (*repository.ProgramRow, error)
 	DeleteProgram(ctx context.Context, id string) error
 	CreateNextVersionClone(ctx context.Context, programID string) (*repository.ProgramRow, error)
+	CreateSelfAssignment(ctx context.Context, userID, programID string, start time.Time) (*domain.Assignment, error)
 }
 
 type programService struct{ repo repository.ProgramRepository }
@@ -92,7 +95,14 @@ func NewProgramService(r repository.ProgramRepository) ProgramService {
 }
 
 func (s *programService) CreateProgram(ctx context.Context, ownerID, title string, notes *string) (*domain.Program, error) {
-	p := &domain.Program{OwnerID: ownerID, Title: title, Notes: notes}
+	return s.CreateProgramWithKind(ctx, ownerID, title, notes, "coach_program")
+}
+
+func (s *programService) CreateProgramWithKind(ctx context.Context, ownerID, title string, notes *string, kind string) (*domain.Program, error) {
+	if strings.TrimSpace(kind) == "" {
+		kind = "coach_program"
+	}
+	p := &domain.Program{OwnerID: ownerID, Title: title, Notes: notes, Kind: kind}
 	err := s.repo.CreateProgram(ctx, p)
 	return p, err
 }
@@ -116,7 +126,8 @@ func (s *programService) DeleteWeek(ctx context.Context, programID, weekID strin
 }
 
 func (s *programService) AddDay(ctx context.Context, weekID string, dayIndex int, notes *string) (*domain.ProgramDay, error) {
-	d := &domain.ProgramDay{WeekID: weekID, DayIndex: dayIndex, Notes: notes}
+	title := "Day " + strconv.Itoa(dayIndex)
+	d := &domain.ProgramDay{WeekID: weekID, DayIndex: dayIndex, Title: &title, Notes: notes}
 	return d, s.repo.AddDay(ctx, d)
 }
 
@@ -165,6 +176,7 @@ func (s *programService) Create(ctx context.Context, ownerID string, in CreatePr
 		Title:      strings.TrimSpace(in.Title),
 		Notes:      normalizePtr(in.Notes),
 		Visibility: ternaryString(in.Visibility, "private"),
+		Kind:       "coach_program",
 		Version:    1,
 	}
 	if err := s.repo.Create(ctx, p); err != nil {
@@ -337,4 +349,8 @@ func (s *programService) DeleteProgram(ctx context.Context, id string) error {
 
 func (s *programService) CreateNextVersionClone(ctx context.Context, programID string) (*repository.ProgramRow, error) {
 	return s.repo.CreateNextVersionClone(ctx, programID)
+}
+
+func (s *programService) CreateSelfAssignment(ctx context.Context, userID, programID string, start time.Time) (*domain.Assignment, error) {
+	return s.repo.ActivateSelfAssignment(ctx, userID, programID, start)
 }

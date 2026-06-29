@@ -38,7 +38,9 @@ export default function Sidebar() {
         {role === 'coach' && <NavLink to="/dashboard" className={link}>Dashboard</NavLink>}
         {role === 'coach' && <NavLink to="/assignments" className={link}>Asignaciones</NavLink>}
         <NavLink to="/exercises" className={link}>Ejercicios</NavLink>
-        {role === 'coach' && <NavLink to="/programs" className={link}>Programas</NavLink>}
+        {(role === 'coach' || role === 'disciple') && (
+          <NavLink to="/programs" className={link}>{role === 'disciple' ? 'Mis rutinas' : 'Programas'}</NavLink>
+        )}
         <NavLink to="/history" className={link}>Historial</NavLink>
 
         {hasSession ? (

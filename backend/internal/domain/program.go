@@ -8,6 +8,7 @@ type Program struct {
 	Title      string    `gorm:"type:text;not null" json:"title"`
 	Notes      *string   `gorm:"type:text" json:"notes,omitempty"`
 	Visibility string    `gorm:"type:text;not null;default:'private'" json:"visibility"`
+	Kind       string    `gorm:"type:text;not null;default:'coach_program'" json:"kind"`
 	Version    int       `gorm:"not null;default:1" json:"version"`
 	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt  time.Time `gorm:"autoUpdateTime" json:"updated_at"`

@@ -15,9 +15,10 @@ type Program struct {
 	Title      string `gorm:"not null"`
 	Notes      *string
 	Visibility string `gorm:"not null;default:'private'"`
+	Kind       string `gorm:"not null;default:'coach_program'"`
 	Version    int    `gorm:"not null;default:1"`
-	CreatedAt  int64  `gorm:"autoCreateTime"`
-	UpdatedAt  int64  `gorm:"autoUpdateTime"`
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 type ProgramVersion struct {
@@ -91,6 +92,7 @@ type ProgramRow struct {
 	Title      string `gorm:"not null"`
 	Notes      *string
 	Visibility string `gorm:"not null;default:private"`
+	Kind       string `gorm:"not null;default:coach_program"`
 	Version    int    `gorm:"not null;default:1"`
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
@@ -101,6 +103,7 @@ type ProgramRepository interface {
 	ListMyPrograms(ctx context.Context, ownerID string, limit, offset int) ([]domain.Program, int64, error)
 	GetProgramVersion(ctx context.Context, programID string) (int, error)
 	Assign(ctx context.Context, a *domain.Assignment) error
+	ActivateSelfAssignment(ctx context.Context, userID, programID string, start time.Time) (*domain.Assignment, error)
 
 	FindActiveAssignmentForDate(ctx context.Context, discipleID string, date time.Time) (*domain.Assignment, error)
 	FindDayForDate(ctx context.Context, assignment *domain.Assignment, date time.Time) (*domain.ProgramDay, error)
@@ -207,6 +210,68 @@ func (r *programRepository) GetProgramVersion(ctx context.Context, programID str
 
 func (r *programRepository) Assign(ctx context.Context, a *domain.Assignment) error {
 	return r.db.WithContext(ctx).Create(a).Error
+}
+
+func (r *programRepository) ActivateSelfAssignment(ctx context.Context, userID, programID string, start time.Time) (*domain.Assignment, error) {
+	if start.IsZero() {
+		start = time.Now()
+	}
+	var out domain.Assignment
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec(`
+			UPDATE assignments AS a
+			SET is_active = false,
+			    end_date = COALESCE(end_date, ?::date)
+			FROM programs AS p
+			WHERE p.id = a.program_id
+			  AND p.kind = 'self_training'
+			  AND a.disciple_id = ?
+			  AND a.assigned_by = ?
+			  AND a.program_id <> ?
+			  AND a.is_active = true
+		`, time.Now(), userID, userID, programID).Error; err != nil {
+			return err
+		}
+
+		err := tx.Where("program_id = ? AND disciple_id = ? AND assigned_by = ?", programID, userID, userID).
+			First(&out).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			out = domain.Assignment{
+				ProgramID:      programID,
+				ProgramVersion: 1,
+				DiscipleID:     userID,
+				AssignedBy:     userID,
+				StartDate:      start,
+				IsActive:       true,
+			}
+			var version int
+			if err := tx.Model(&domain.Program{}).Select("version").Where("id = ?", programID).Scan(&version).Error; err != nil {
+				return err
+			}
+			if version > 0 {
+				out.ProgramVersion = version
+			}
+			return tx.Create(&out).Error
+		}
+
+		if err := tx.Model(&domain.Assignment{}).
+			Where("id = ?", out.ID).
+			Updates(map[string]any{
+				"is_active":  true,
+				"end_date":   nil,
+				"start_date": start,
+			}).Error; err != nil {
+			return err
+		}
+		return tx.First(&out, "id = ?", out.ID).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (r *programRepository) FindActiveAssignmentForDate(ctx context.Context, discipleID string, date time.Time) (*domain.Assignment, error) {
