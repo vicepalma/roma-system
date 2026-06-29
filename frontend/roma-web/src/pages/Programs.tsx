@@ -101,6 +101,9 @@ export default function Programs() {
     mutationFn: (programId: string) => createSelfAssignment(programId),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['me', 'assignment', 'active'] })
+      await qc.invalidateQueries({ queryKey: ['programs', 'mine'] })
+      await qc.invalidateQueries({ queryKey: ['programs'], exact: false, refetchType: 'active' })
+      await qc.invalidateQueries({ queryKey: ['assignment'], exact: false })
       show({ type: 'success', message: 'Rutina activada' })
     },
     onError: () => show({ type: 'error', message: 'No se pudo activar la rutina' }),

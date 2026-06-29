@@ -1,4 +1,5 @@
 import api from '@/lib/axios'
+import axios from 'axios'
 import { SessionLog, SessionSet } from '@/types/sessions'
 
 
@@ -76,20 +77,22 @@ export async function deleteSet(sessionId: string, setId: string) {
   return true
 }
 
-export async function getMyActiveSession() {
+export type MyActiveSession = {
+  id: string
+  assignment_id: string
+  disciple_id: string
+  day_id: string
+  performed_at: string
+  notes?: string | null
+}
+
+export async function getMyActiveSession(): Promise<MyActiveSession | null> {
   try {
     const { data } = await api.get('/api/me/session/active')
     if (!data || !data.id) return null
-    return data as {
-      id: string
-      assignment_id: string
-      disciple_id: string
-      day_id: string
-      performed_at: string
-      notes?: string | null
-    }
-  }catch (err: any) {
-    if (err?.response?.status === 404) return null
+    return data as MyActiveSession
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err) && err.response?.status === 404) return null
     throw err
   }
 }

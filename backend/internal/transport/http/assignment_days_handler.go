@@ -21,7 +21,7 @@ func NewAssignmentDaysHandler(s service.AssignmentDaysService) *AssignmentDaysHa
 func (h *AssignmentDaysHandler) Register(r *gin.RouterGroup) {
 	g := r.Group("/assignments")
 	{
-		g.GET(":assignmentId/days", h.list)
+		g.GET("/:assignmentId/days", h.list)
 	}
 }
 
@@ -38,7 +38,7 @@ func (h *AssignmentDaysHandler) list(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not_found"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"items": []any{}}) // también podrías devolver 200 vacío si prefieres
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"items": items})

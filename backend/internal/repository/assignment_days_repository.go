@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
@@ -116,22 +117,27 @@ ORDER BY d.week_index ASC, d.day_index ASC;
 	for rows.Next() {
 		var it AssignmentDaysItem
 		var title *string
+		var exerciseNames pq.StringArray
 		if err := rows.Scan(
 			&it.ID,
 			&it.WeekID,
 			&it.WeekIndex,
 			&it.DayIndex,
 			&it.PrescriptionsCount,
-			&it.ExerciseNames,
+			&exerciseNames,
 			&it.IsSessionDay,
 			&title,
 		); err != nil {
 			return nil, err
 		}
 		it.Title = title
+		it.ExerciseNames = []string(exerciseNames)
 		// Notes ya viene en title CTE si existía; la queremos también aparte:
 		// Volvemos a leer notas con una query chica solo si quieres la nota exacta (opcional).
 		out = append(out, it)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return out, nil
 }

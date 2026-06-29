@@ -70,6 +70,12 @@ Resultado: migracion `0006` reemplaza indice global por indice parcial de self-a
 Validado: migraciones 0001-0006 en `roma_e2e`; `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
 Pendiente: impedir inicio de sesiones sobre assignments inactivos si se decide aplicar esa regla globalmente.
 
+### CHK-008b - Bugfix dias self-training
+Estado: Completado
+Objetivo: listar dias agregados al iniciar sesion desde self-training activo.
+Resultado: ruta `/api/assignments/:id/days` corregida; scan de `text[]` arreglado; errores inesperados ya no devuelven lista vacia silenciosa.
+Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
+
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
 - Ampliar E2E cuando aparezcan endpoints de editar sets/check-ins.

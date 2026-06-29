@@ -176,6 +176,8 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 	e2eAssertSelfAssignmentState(t, db, disciple3ID, selfProgramID, true)
 	e2eAssertActiveSelfAssignmentCount(t, db, disciple3ID, 1)
 	e2eAssertActiveCoachAssignmentCount(t, db, disciple3ID, 1)
+	e2eAssertActiveAssignment(t, r, disciple3Token, selfAssignmentID)
+	e2eAssertAssignmentDays(t, r, disciple3Token, selfAssignmentID, selfDayID)
 	selfAssignmentBID := e2ePostID(t, r, http.MethodPost, "/api/programs/"+selfProgramBID+"/self-assignment", disciple3Token, gin.H{"start_date": "2026-06-30"}, http.StatusCreated)
 	if selfAssignmentBID == selfAssignmentID {
 		t.Fatalf("second self-training activation reused first assignment id")
@@ -184,6 +186,7 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 	e2eAssertSelfAssignmentState(t, db, disciple3ID, selfProgramBID, true)
 	e2eAssertActiveSelfAssignmentCount(t, db, disciple3ID, 1)
 	e2eAssertActiveCoachAssignmentCount(t, db, disciple3ID, 1)
+	e2eAssertAssignmentDays(t, r, disciple3Token, selfAssignmentBID, selfDayBID)
 
 	e2eRequest(t, r, http.MethodPost, "/api/sessions", disciple3Token, gin.H{
 		"assignment_id": selfAssignmentBID,
@@ -328,6 +331,35 @@ func e2eCreateProgram(t *testing.T, r http.Handler, token, title string) string 
 func e2eCreateSelfTrainingProgram(t *testing.T, r http.Handler, token, title string) string {
 	t.Helper()
 	return e2ePostID(t, r, http.MethodPost, "/api/programs", token, gin.H{"title": title, "kind": "self_training"}, http.StatusCreated)
+}
+
+func e2eAssertActiveAssignment(t *testing.T, r http.Handler, token, assignmentID string) {
+	t.Helper()
+	resp := e2eRequest(t, r, http.MethodGet, "/api/me/assignment/active", token, nil, http.StatusOK)
+	var out struct {
+		ID string `json:"id"`
+	}
+	e2eDecode(t, resp, &out)
+	if out.ID != assignmentID {
+		t.Fatalf("active assignment id=%s want %s", out.ID, assignmentID)
+	}
+}
+
+func e2eAssertAssignmentDays(t *testing.T, r http.Handler, token, assignmentID, dayID string) {
+	t.Helper()
+	resp := e2eRequest(t, r, http.MethodGet, "/api/assignments/"+assignmentID+"/days", token, nil, http.StatusOK)
+	var out struct {
+		Items []struct {
+			ID string `json:"id"`
+		} `json:"items"`
+	}
+	e2eDecode(t, resp, &out)
+	for _, item := range out.Items {
+		if item.ID == dayID {
+			return
+		}
+	}
+	t.Fatalf("assignment %s days did not include day %s; got %#v", assignmentID, dayID, out.Items)
 }
 
 func e2eInsertActiveCoachAssignment(t *testing.T, db *gorm.DB, programID, discipleID, coachID string) {

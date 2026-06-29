@@ -43,15 +43,9 @@ export default function Sidebar() {
         )}
         <NavLink to="/history" className={link}>Historial</NavLink>
 
-        {hasSession ? (
-          <NavLink to={`/sessions/${currentSessionId}`} className={link}>
-            Sesión {currentDiscipleName ? `— ${currentDiscipleName}` : ''}
-          </NavLink>
-        ) : (
-          <span className="block rounded-md px-3 py-2 text-sm text-gray-500 dark:text-neutral-400">
-            Sesión (no activa)
-          </span>
-        )}
+        <NavLink to={hasSession ? `/sessions/${currentSessionId}` : '/sessions'} className={link}>
+          {hasSession ? `Continuar sesión${currentDiscipleName ? ` — ${currentDiscipleName}` : ''}` : 'Entrenar'}
+        </NavLink>
       </nav>
     </aside>
   )
