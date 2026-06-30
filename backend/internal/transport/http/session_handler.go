@@ -68,6 +68,15 @@ func (h *SessionHandler) start(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}
+	ok, err = security.IsAssignmentActive(h.db.WithContext(c.Request.Context()), body.AssignmentID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusConflict, gin.H{"error": "assignment_inactive"})
+		return
+	}
 	ok, err = security.IsAssignmentDay(h.db.WithContext(c.Request.Context()), body.AssignmentID, body.DayID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})

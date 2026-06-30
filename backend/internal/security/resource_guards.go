@@ -319,6 +319,12 @@ func IsAssignmentOwnedByDisciple(db *gorm.DB, actorID, assignmentID string) (boo
 	return count > 0, err
 }
 
+func IsAssignmentActive(db *gorm.DB, assignmentID string) (bool, error) {
+	var count int64
+	err := db.Table("assignments").Where("id = ? AND is_active = true", assignmentID).Count(&count).Error
+	return count > 0, err
+}
+
 func CanAccessSession(db *gorm.DB, actorID, sessionID string) (bool, error) {
 	var row struct{ DiscipleID string }
 	if err := db.Table("session_logs").Select("disciple_id").Where("id = ?", sessionID).Scan(&row).Error; err != nil {

@@ -76,6 +76,12 @@ Objetivo: listar dias agregados al iniciar sesion desde self-training activo.
 Resultado: ruta `/api/assignments/:id/days` corregida; scan de `text[]` arreglado; errores inesperados ya no devuelven lista vacia silenciosa.
 Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
 
+### CHK-009 - Bloqueo de sesiones en assignments inactivos
+Estado: Completado.
+Objetivo: impedir nuevas sesiones sobre assignments `is_active=false`.
+Resultado: `POST /api/sessions` responde `409 assignment_inactive` tras validar ownership; frontend muestra mensaje claro.
+Validado: migraciones 0001-0006 en `roma_e2e`; `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
+
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
 - Ampliar E2E cuando aparezcan endpoints de editar sets/check-ins.

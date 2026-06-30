@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, Link } from 'react-router-dom'
+import axios from 'axios'
 import { useToast } from '@/components/toast/ToastProvider'
 import Modal from '@/components/ui/Modal'
 import { getMyActiveAssignment, listAssignmentDays } from '@/services/assignments'
@@ -71,7 +72,14 @@ export default function SessionsIndex() {
       await qc.invalidateQueries({ queryKey: ['me', 'session', 'active'] })
       navigate(`/sessions/${sess.id}`)
     },
-    onError: () => show({ type: 'error', message: 'No se pudo iniciar la sesión' }),
+    onError: (err) => {
+      if (axios.isAxiosError(err) && err.response?.status === 409 && err.response.data?.error === 'assignment_inactive') {
+        show({ type: 'error', message: 'Esta rutina ya no está activa. Activa la rutina antes de entrenar.' })
+        qc.invalidateQueries({ queryKey: ['me', 'assignment', 'active'] })
+        return
+      }
+      show({ type: 'error', message: 'No se pudo iniciar la sesión' })
+    },
   })
 
   const haveActiveSession = !!activeSessQ.data

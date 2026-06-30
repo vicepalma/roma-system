@@ -67,6 +67,14 @@ func TestOwnershipGuards(t *testing.T) {
 		t.Fatalf("assignment owner ok=%v err=%v", ok, err)
 	}
 
+	mock.ExpectQuery(`SELECT count\(\*\) FROM "assignments"`).
+		WithArgs("assignment-1").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	ok, err = IsAssignmentActive(db, "assignment-1")
+	if err != nil || !ok {
+		t.Fatalf("assignment active ok=%v err=%v", ok, err)
+	}
+
 	mock.ExpectQuery(`SELECT count\(\*\) FROM "session_logs"`).
 		WithArgs("session-1", "disciple-1").
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))

@@ -107,6 +107,7 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 		"program_id":  programID,
 		"start_date":  "2026-06-29",
 	}, http.StatusForbidden)
+	e2eRequest(t, r, http.MethodPost, "/api/coach/assignments/"+assignmentID+"/activate?disciple_id="+disciple1ID, coach1Token, nil, http.StatusNoContent)
 
 	sessionID := e2ePostID(t, r, http.MethodPost, "/api/sessions", disciple1Token, gin.H{
 		"assignment_id": assignmentID,
@@ -135,6 +136,14 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 		"reps":            10,
 	}, http.StatusBadRequest)
 	e2eRequest(t, r, http.MethodDelete, "/api/sessions/"+sessionID+"/sets/"+setID, disciple2Token, nil, http.StatusForbidden)
+
+	e2eSetAssignmentActive(t, db, assignmentID, false)
+	e2eRequest(t, r, http.MethodPost, "/api/sessions", disciple1Token, gin.H{
+		"assignment_id": assignmentID,
+		"day_id":        dayID,
+	}, http.StatusConflict)
+	e2eRequest(t, r, http.MethodGet, "/api/sessions/"+sessionID, disciple1Token, nil, http.StatusOK)
+	e2eRequest(t, r, http.MethodGet, "/api/sessions/"+sessionID, coach1Token, nil, http.StatusOK)
 
 	e2eRequest(t, r, http.MethodGet, "/api/history", disciple1Token, nil, http.StatusOK)
 	e2eRequest(t, r, http.MethodGet, "/api/history?disciple_id="+disciple1ID, coach1Token, nil, http.StatusOK)
@@ -188,6 +197,10 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 	e2eAssertActiveCoachAssignmentCount(t, db, disciple3ID, 1)
 	e2eAssertAssignmentDays(t, r, disciple3Token, selfAssignmentBID, selfDayBID)
 
+	e2eRequest(t, r, http.MethodPost, "/api/sessions", disciple3Token, gin.H{
+		"assignment_id": selfAssignmentID,
+		"day_id":        selfDayID,
+	}, http.StatusConflict)
 	e2eRequest(t, r, http.MethodPost, "/api/sessions", disciple3Token, gin.H{
 		"assignment_id": selfAssignmentBID,
 		"day_id":        selfDayID,
@@ -360,6 +373,13 @@ func e2eAssertAssignmentDays(t *testing.T, r http.Handler, token, assignmentID, 
 		}
 	}
 	t.Fatalf("assignment %s days did not include day %s; got %#v", assignmentID, dayID, out.Items)
+}
+
+func e2eSetAssignmentActive(t *testing.T, db *gorm.DB, assignmentID string, active bool) {
+	t.Helper()
+	if err := db.Exec(`UPDATE assignments SET is_active = ? WHERE id = ?`, active, assignmentID).Error; err != nil {
+		t.Fatalf("set assignment active=%v: %v", active, err)
+	}
 }
 
 func e2eInsertActiveCoachAssignment(t *testing.T, db *gorm.DB, programID, discipleID, coachID string) {
