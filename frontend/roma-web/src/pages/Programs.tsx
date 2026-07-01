@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/toast/ToastProvider'
 import {
-  listMyPrograms, createProgram, type Program,
+  listMyPrograms, createProgram, updateProgram, type Program,
   listWeeks, addWeek, type ProgramWeek,
   listDays, addDay, deleteDay, type ProgramDay,
   listPrescriptions, addPrescription, deletePrescription, deleteProgram, deleteWeek, createSelfAssignment, type DayPrescription,
@@ -21,6 +21,7 @@ export default function Programs() {
   const role = useAuth(s => s.user?.role)
   const isDisciple = role === 'disciple'
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null)
+  const [editingProgram, setEditingProgram] = useState<Program | null>(null)
   const [selectedWeek, setSelectedWeek] = useState<ProgramWeek | null>(null)
   const [selectedDay, setSelectedDay] = useState<ProgramDay | null>(null)
   const canAddDay = !!selectedProgram?.id && !!selectedWeek?.id;
@@ -97,12 +98,29 @@ export default function Programs() {
     onError: () => show({ type: 'error', message: 'No se pudo crear el programa' }),
   })
 
+  const updateProgramM = useMutation({
+    mutationFn: (v: { id: string; title: string; notes?: string | null }) =>
+      updateProgram(v.id, { title: v.title, notes: v.notes ?? null }),
+    onSuccess: async (updated) => {
+      setSelectedProgram(prev => prev?.id === updated.id ? updated : prev)
+      setEditingProgram(null)
+      qc.setQueryData(['programs', updated.id, 'active-summary'], updated)
+      await qc.invalidateQueries({ queryKey: ['programs'], exact: false, refetchType: 'active' })
+      await qc.invalidateQueries({ queryKey: ['programs', updated.id, 'active-summary'] })
+      await qc.invalidateQueries({ queryKey: ['me', 'assignment', 'active'] })
+      await qc.invalidateQueries({ queryKey: ['assignment'], exact: false })
+      show({ type: 'success', message: isDisciple ? 'Rutina actualizada' : 'Programa actualizado' })
+    },
+    onError: () => show({ type: 'error', message: isDisciple ? 'No se pudo actualizar la rutina' : 'No se pudo actualizar el programa' }),
+  })
+
   const selfAssignM = useMutation({
     mutationFn: (programId: string) => createSelfAssignment(programId),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['me', 'assignment', 'active'] })
       await qc.invalidateQueries({ queryKey: ['programs', 'mine'] })
       await qc.invalidateQueries({ queryKey: ['programs'], exact: false, refetchType: 'active' })
+      await qc.invalidateQueries({ queryKey: ['programs'], exact: false })
       await qc.invalidateQueries({ queryKey: ['assignment'], exact: false })
       show({ type: 'success', message: 'Rutina activada' })
     },
@@ -244,7 +262,9 @@ export default function Programs() {
         {programsQ.isError && <div className="text-red-600 text-sm">Error al cargar programas</div>}
 
         <ul className="space-y-1">
-          {(programsQ.data ?? []).map(p => (
+          {(programsQ.data ?? []).map(p => {
+            const canEditProgram = !isDisciple || p.kind === 'self_training'
+            return (
             <li key={p.id}>
               <div className="flex items-center justify-between hover:bg-gray-300 rounded-lg">
                 <button
@@ -264,23 +284,34 @@ export default function Programs() {
                   )}
                 </button>
 
-                <button
-                  onClick={() => {
-                    if (confirm('¿Eliminar este programa? Esta acción no se puede deshacer.')) {
-                      delProgramM.mutate(p.id)
-                    }
-                  }}
-                  disabled={delProgramM.isPending}
-                  className="text-xs rounded px-2 py-1 border text-red-600 bg-white 
+                <div className="flex items-center gap-1">
+                  {canEditProgram && (
+                    <button
+                      onClick={() => setEditingProgram(p)}
+                      className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+                    >
+                      Editar
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (confirm('¿Eliminar este programa? Esta acción no se puede deshacer.')) {
+                        delProgramM.mutate(p.id)
+                      }
+                    }}
+                    disabled={delProgramM.isPending}
+                    className="text-xs rounded px-2 py-1 border text-red-600 bg-white 
 hover:bg-red-50 active:bg-red-100 
 dark:bg-neutral-900 dark:border-neutral-800 
 transition-colors duration-150"
-                >
-                  Eliminar
-                </button>
+                  >
+                    Eliminar
+                  </button>
+                </div>
               </div>
             </li>
-          ))}
+            )
+          })}
 
           {!programsQ.isLoading && (programsQ.data ?? []).length === 0 && (
             <li className="text-xs text-gray-500">{isDisciple ? 'Sin rutinas' : 'Sin programas'}</li>
@@ -527,7 +558,7 @@ transition-colors duration-150"
             const fd = new FormData(e.currentTarget as HTMLFormElement)
             createProgramM.mutate({
               title: String(fd.get('title') || ''),
-              description: String(fd.get('description') || '') || null,
+              notes: String(fd.get('description') || '') || null,
               kind: isDisciple ? 'self_training' : 'coach_program',
             })
           }}
@@ -549,6 +580,50 @@ transition-colors duration-150"
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal open={!!editingProgram} onClose={() => setEditingProgram(null)} title={isDisciple ? 'Editar rutina' : 'Editar programa'}>
+        {editingProgram && (
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const fd = new FormData(e.currentTarget as HTMLFormElement)
+              updateProgramM.mutate({
+                id: editingProgram.id,
+                title: String(fd.get('title') || ''),
+                notes: String(fd.get('notes') || '') || null,
+              })
+            }}
+          >
+            <label className="text-sm block">
+              <div className="mb-1">Título *</div>
+              <input
+                name="title"
+                required
+                defaultValue={editingProgram.title}
+                className="w-full border rounded px-2 py-1 text-sm dark:bg-neutral-900 dark:border-neutral-800"
+              />
+            </label>
+            <label className="text-sm block">
+              <div className="mb-1">Descripción</div>
+              <textarea
+                name="notes"
+                rows={3}
+                defaultValue={editingProgram.notes ?? ''}
+                className="w-full border rounded px-2 py-1 text-sm dark:bg-neutral-900 dark:border-neutral-800"
+              />
+            </label>
+            <div className="flex items-center gap-2 pt-1">
+              <button type="submit" disabled={updateProgramM.isPending} className="text-sm rounded px-3 py-1 border">
+                {updateProgramM.isPending ? 'Guardando…' : 'Guardar'}
+              </button>
+              <button type="button" onClick={() => setEditingProgram(null)} className="text-sm text-gray-600 hover:underline">
+                Cancelar
+              </button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       <Modal open={openNewWeek} onClose={() => setOpenNewWeek(false)} title="Nueva semana">

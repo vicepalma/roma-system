@@ -2,10 +2,13 @@ import api from '@/lib/axios'
 
 export type Program = {
   id: string
+  owner_id?: string
   title: string
-  description?: string | null
+  notes?: string | null
   kind?: 'coach_program' | 'self_training'
   version?: number
+  created_at?: string
+  updated_at?: string
 }
 
 export type ProgramWeek = {
@@ -90,13 +93,42 @@ export async function listMyPrograms() {
   const { data } = await api.get<{ items?: Program[] }>('/api/programs')
   return data.items ?? []
 }
-export async function createProgram(payload: { title: string; description?: string | null; kind?: 'coach_program' | 'self_training' }) {
-  const { data } = await api.post<Program>('/api/programs', payload)
+export async function createProgram(payload: { title: string; notes?: string | null; description?: string | null; kind?: 'coach_program' | 'self_training' }) {
+  const { data } = await api.post<Program>('/api/programs', {
+    title: payload.title,
+    notes: payload.notes ?? payload.description ?? null,
+    kind: payload.kind,
+  })
   return data
 }
 export async function getProgram(id: string) {
-  const { data } = await api.get<Program>(`/api/programs/${id}`)
-  return data
+  const { data } = await api.get<any>(`/api/programs/${id}`)
+  return {
+    id: data.id ?? data.ID,
+    owner_id: data.owner_id ?? data.OwnerID,
+    title: data.title ?? data.Title ?? '',
+    notes: data.notes ?? data.Notes ?? null,
+    kind: data.kind ?? data.Kind,
+    version: data.version ?? data.Version,
+    created_at: data.created_at ?? data.CreatedAt,
+    updated_at: data.updated_at ?? data.UpdatedAt,
+  } as Program
+}
+export async function updateProgram(id: string, payload: { title: string; notes?: string | null }) {
+  const { data } = await api.put<any>(`/api/programs/${id}`, {
+    title: payload.title,
+    notes: payload.notes ?? null,
+  })
+  return {
+    id: data.id ?? data.ID,
+    owner_id: data.owner_id ?? data.OwnerID,
+    title: data.title ?? data.Title ?? '',
+    notes: data.notes ?? data.Notes ?? null,
+    kind: data.kind ?? data.Kind,
+    version: data.version ?? data.Version,
+    created_at: data.created_at ?? data.CreatedAt,
+    updated_at: data.updated_at ?? data.UpdatedAt,
+  } as Program
 }
 
 // ---- Weeks ----

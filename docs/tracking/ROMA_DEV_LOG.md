@@ -82,6 +82,24 @@ Objetivo: impedir nuevas sesiones sobre assignments `is_active=false`.
 Resultado: `POST /api/sessions` responde `409 assignment_inactive` tras validar ownership; frontend muestra mensaje claro.
 Validado: migraciones 0001-0006 en `roma_e2e`; `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
 
+### CHK-010 - Pulido UX Entrenar
+Estado: Completado.
+Objetivo: clarificar rutina activa, dias disponibles, ejercicios y accion de continuar/iniciar sesion.
+Resultado: Entrenar muestra sesion activa, rutina activa, dias visibles y detalle de ejercicios sin depender de modal.
+Validado: `npm run build`.
+
+### CHK-011 - Editar rutina propia
+Estado: Completado.
+Objetivo: permitir editar titulo y descripcion/notas de rutinas propias y programas propios.
+Resultado: Mis rutinas/Programas agrega accion Editar usando `PUT /api/programs/:id`; payload limitado a `title`/`notes`.
+Validado: `npm run build`; `GOCACHE=/tmp/roma-go-cache go test ./...`.
+
+### CHK-012 - Descripcion Entrenar
+Estado: Completado.
+Objetivo: mostrar rutina activa y dias con datos reales y legibles.
+Resultado: Entrenar usa `assigned_by`/`disciple_id`, `program.kind`, notas, fecha formateada, conteo y resumen de ejercicios.
+Validado: `npm run build`.
+
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
 - Ampliar E2E cuando aparezcan endpoints de editar sets/check-ins.

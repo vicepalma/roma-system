@@ -6,7 +6,11 @@ export type MyActiveAssignment = {
   program_id: string
   program_version: number
   disciple_id: string
+  assigned_by: string
   start_date: string
+  end_date?: string | null
+  is_active: boolean
+  created_at?: string
 }
 
 // GET /api/coach/assignments
