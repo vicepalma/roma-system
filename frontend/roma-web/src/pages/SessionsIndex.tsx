@@ -120,6 +120,9 @@ export default function SessionsIndex() {
   const activeSessionDay = activeSessQ.data?.day_id
     ? days.find((d) => d.id === activeSessQ.data?.day_id)
     : null
+  const activeSessionDayLabel = activeSessionDay
+    ? `Semana ${activeSessionDay.week_index} · Día ${activeSessionDay.day_index}`
+    : 'Día de entrenamiento'
 
   return (
     <div className="space-y-4">
@@ -129,18 +132,20 @@ export default function SessionsIndex() {
             <div className="text-xs uppercase text-gray-500 dark:text-neutral-400">
               {haveActiveSession ? 'Sesión activa' : 'Entrenar'}
             </div>
-            <h1 className="text-xl font-semibold">
-              {haveActiveSession ? 'Continúa tu sesión' : 'Inicia una nueva sesión'}
-            </h1>
             {haveActiveSession ? (
-              <div className="text-sm text-gray-600 dark:text-neutral-300">
-                {activeProgramQ.isLoading ? 'Cargando rutina…' : activeProgramTitle}
-                {activeSessionDay ? ` · ${dayLabel(activeSessionDay)}` : ''}
-              </div>
+              <>
+                <h1 className="text-xl font-semibold">
+                  {activeProgramQ.isLoading ? 'Cargando rutina…' : activeProgramTitle || 'Rutina activa'}
+                </h1>
+                <div className="text-sm text-gray-600 dark:text-neutral-300">{activeSessionDayLabel}</div>
+              </>
             ) : (
-              <div className="text-sm text-gray-600 dark:text-neutral-300">
-                Selecciona un día de tu rutina activa para comenzar.
-              </div>
+              <>
+                <h1 className="text-xl font-semibold">Inicia una nueva sesión</h1>
+                <div className="text-sm text-gray-600 dark:text-neutral-300">
+                  Selecciona un día de tu rutina activa para comenzar.
+                </div>
+              </>
             )}
           </div>
 

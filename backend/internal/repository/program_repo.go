@@ -220,8 +220,7 @@ func (r *programRepository) ActivateSelfAssignment(ctx context.Context, userID, 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec(`
 			UPDATE assignments AS a
-			SET is_active = false,
-			    end_date = COALESCE(end_date, ?::date)
+			SET is_active = false
 			FROM programs AS p
 			WHERE p.id = a.program_id
 			  AND p.kind = 'self_training'
@@ -229,7 +228,7 @@ func (r *programRepository) ActivateSelfAssignment(ctx context.Context, userID, 
 			  AND a.assigned_by = ?
 			  AND a.program_id <> ?
 			  AND a.is_active = true
-		`, time.Now(), userID, userID, programID).Error; err != nil {
+		`, userID, userID, programID).Error; err != nil {
 			return err
 		}
 

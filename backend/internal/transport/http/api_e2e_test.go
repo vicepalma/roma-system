@@ -219,6 +219,15 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 	e2eRequest(t, r, http.MethodGet, "/api/history?disciple_id="+disciple3ID, disciple3Token, nil, http.StatusOK)
 	e2eRequest(t, r, http.MethodGet, "/api/history?disciple_id="+disciple3ID, coach1Token, nil, http.StatusForbidden)
 
+	selfFutureProgramAID := e2eCreateSelfTrainingProgram(t, r, disciple3Token, "E2E Future Self Routine A")
+	selfFutureProgramBID := e2eCreateSelfTrainingProgram(t, r, disciple3Token, "E2E Future Self Routine B")
+	e2ePostID(t, r, http.MethodPost, "/api/programs/"+selfFutureProgramAID+"/self-assignment", disciple3Token, gin.H{"start_date": "2030-01-02"}, http.StatusCreated)
+	e2ePostID(t, r, http.MethodPost, "/api/programs/"+selfFutureProgramBID+"/self-assignment", disciple3Token, gin.H{"start_date": "2030-01-02"}, http.StatusCreated)
+	e2eAssertSelfAssignmentState(t, db, disciple3ID, selfFutureProgramAID, false)
+	e2eAssertSelfAssignmentState(t, db, disciple3ID, selfFutureProgramBID, true)
+	e2eAssertActiveSelfAssignmentCount(t, db, disciple3ID, 1)
+	e2eAssertActiveCoachAssignmentCount(t, db, disciple3ID, 1)
+
 	if coach1ID != e2eCoach1 {
 		t.Fatalf("coach id=%s want %s", coach1ID, e2eCoach1)
 	}
