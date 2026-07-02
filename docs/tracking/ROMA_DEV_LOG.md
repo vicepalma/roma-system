@@ -146,6 +146,13 @@ Resultado: detalle muestra resumen, rutina activa, ultimos entrenamientos, check
 Validado: `npm run build`.
 Pendiente: mejorar vista completa de historial coach con nombre del disciple y opciones de contexto.
 
+### CHK-019 - Documentacion operativa minima
+Estado: Completado.
+Objetivo: dejar guias cortas para retomar producto, setup, testing, reglas y roadmap.
+Resultado: README, AGENTS, ROADMAP y docs product/engineering creados o actualizados con comandos y estado actual.
+Validado: `git status --short`.
+Pendiente: mantener docs sincronizadas en cada checkpoint funcional.
+
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
 - Ampliar E2E cuando aparezcan endpoints de editar sets/check-ins.
