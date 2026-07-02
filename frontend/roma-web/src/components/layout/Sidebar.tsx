@@ -37,6 +37,7 @@ export default function Sidebar() {
             <NavLink to="/programs" className={link}>Mis rutinas</NavLink>
             <NavLink to="/exercises" className={link}>Ejercicios</NavLink>
             <NavLink to="/history" className={link}>Historial</NavLink>
+            <NavLink to="/checkins" className={link}>Check-ins</NavLink>
           </>
         ) : (
           <>

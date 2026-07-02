@@ -125,6 +125,13 @@ Resultado: `/api/history?group=session` y `/api/history/disciples/:id/sessions` 
 Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
 Pendiente: selector de rutina depende de programas visibles por `/api/programs`; revisar si debe incluir historicos asignados por coach ya no listados.
 
+### CHK-016 - Check-ins basicos
+Estado: Completado.
+Objetivo: registrar fecha, peso opcional y notas de seguimiento del disciple.
+Resultado: `checkins.checked_at` agregado; disciple crea/lista/ve propios; coach vinculado lista/ve; terceros bloqueados; UI disciple simple.
+Validado: migraciones 0001-0007 en DB temporal limpia; `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
+Pendiente: UI coach para check-ins en detalle de disciple; edicion/borrado quedan fuera.
+
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
 - Ampliar E2E cuando aparezcan endpoints de editar sets/check-ins.

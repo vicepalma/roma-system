@@ -157,6 +157,10 @@ func main() {
 	adSvc := service.NewAssignmentDaysService(adRepo, coachSvc)
 	adH := httpHandlers.NewAssignmentDaysHandler(adSvc)
 
+	checkinRepo := repository.NewCheckinRepository(db)
+	checkinSvc := service.NewCheckinService(checkinRepo)
+	checkinH := httpHandlers.NewCheckinHandler(checkinSvc, db)
+
 	// Handlers
 	authH := httpHandlers.NewAuthHandler(userRepo, db)
 	meH := httpHandlers.NewMeHandler(histSvc, coachSvc, sessSvc)
@@ -185,6 +189,7 @@ func main() {
 	coachH.Register(api)
 	inviteH.Register(api)
 	adH.Register(api)
+	checkinH.Register(api)
 	meH.Register(api)
 
 	// start async

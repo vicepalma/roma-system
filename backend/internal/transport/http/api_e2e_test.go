@@ -60,6 +60,22 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 	e2eAssertMe(t, r, disciple1Token, "disciple")
 	e2eRequest(t, r, http.MethodGet, "/api/exercises", "", nil, http.StatusUnauthorized)
 
+	checkinID := e2ePostID(t, r, http.MethodPost, "/api/checkins", disciple1Token, gin.H{
+		"checked_at": "2026-07-01",
+		"weight_kg":  76.5,
+		"notes":      "E2E check-in",
+	}, http.StatusCreated)
+	e2eAssertCheckinInList(t, r, disciple1Token, "/api/checkins", checkinID)
+	e2eAssertCheckinDetail(t, r, disciple1Token, checkinID, disciple1ID, 76.5, "E2E check-in")
+	e2eRequest(t, r, http.MethodGet, "/api/checkins/"+checkinID, disciple2Token, nil, http.StatusForbidden)
+	e2eAssertCheckinInList(t, r, coach1Token, "/api/coach/disciples/"+disciple1ID+"/checkins", checkinID)
+	e2eRequest(t, r, http.MethodGet, "/api/checkins/"+checkinID, coach1Token, nil, http.StatusOK)
+	e2eRequest(t, r, http.MethodGet, "/api/coach/disciples/"+disciple1ID+"/checkins", coach2Token, nil, http.StatusForbidden)
+	e2eRequest(t, r, http.MethodGet, "/api/checkins/"+checkinID, coach2Token, nil, http.StatusForbidden)
+	e2eRequest(t, r, http.MethodPost, "/api/checkins", coach1Token, gin.H{"checked_at": "2026-07-01"}, http.StatusForbidden)
+	e2eRequest(t, r, http.MethodPost, "/api/checkins", disciple1Token, gin.H{"checked_at": "not-a-date"}, http.StatusBadRequest)
+	e2eRequest(t, r, http.MethodPost, "/api/checkins", disciple1Token, gin.H{"checked_at": "2026-07-01", "weight_kg": -1}, http.StatusBadRequest)
+
 	exerciseID := e2eCreateExercise(t, r, coach1Token, "E2E Bench Press")
 	e2eRequest(t, r, http.MethodPost, "/api/exercises", disciple1Token, gin.H{"name": "E2E Disciple Forbidden", "primary_muscle": "chest"}, http.StatusForbidden)
 	e2eRequest(t, r, http.MethodGet, "/api/exercises", disciple1Token, nil, http.StatusOK)
@@ -296,10 +312,12 @@ func e2eRouter(db *gorm.DB) *gin.Engine {
 	sessRepo := repository.NewSessionRepository(db)
 	inviteRepo := repository.NewInviteRepository(db)
 	adRepo := repository.NewAssignmentDaysRepository(db)
+	checkinRepo := repository.NewCheckinRepository(db)
 
 	histSvc := service.NewHistoryService(histRepo)
 	coachSvc := service.NewCoachService(coachRepo, histSvc, db, assignRepo)
 	sessSvc := service.NewSessionService(sessRepo, coachSvc)
+	checkinSvc := service.NewCheckinService(checkinRepo)
 
 	r := gin.New()
 	NewAuthHandler(userRepo, db).Register(r.Group("/"))
@@ -311,6 +329,7 @@ func e2eRouter(db *gorm.DB) *gin.Engine {
 	NewCoachHandler(coachSvc, histSvc, userRepo, db).Register(api)
 	NewInviteHandler(service.NewInviteService(inviteRepo, coachSvc, "")).Register(api)
 	NewAssignmentDaysHandler(service.NewAssignmentDaysService(adRepo, coachSvc)).Register(api)
+	NewCheckinHandler(checkinSvc, db).Register(api)
 	NewMeHandler(histSvc, coachSvc, sessSvc).Register(api)
 	return r
 }
@@ -390,6 +409,38 @@ func e2eAssertMe(t *testing.T, r http.Handler, token string, role string) {
 	e2eDecode(t, resp, &out)
 	if out.Role != role {
 		t.Fatalf("/me role=%q want %q", out.Role, role)
+	}
+}
+
+func e2eAssertCheckinInList(t *testing.T, r http.Handler, token, path, checkinID string) {
+	t.Helper()
+	resp := e2eRequest(t, r, http.MethodGet, path, token, nil, http.StatusOK)
+	var out struct {
+		Items []struct {
+			ID string `json:"id"`
+		} `json:"items"`
+	}
+	e2eDecode(t, resp, &out)
+	for _, item := range out.Items {
+		if item.ID == checkinID {
+			return
+		}
+	}
+	t.Fatalf("checkins list %s did not include %s: %#v", path, checkinID, out.Items)
+}
+
+func e2eAssertCheckinDetail(t *testing.T, r http.Handler, token, checkinID, discipleID string, weight float64, notes string) {
+	t.Helper()
+	resp := e2eRequest(t, r, http.MethodGet, "/api/checkins/"+checkinID, token, nil, http.StatusOK)
+	var out struct {
+		ID         string   `json:"id"`
+		DiscipleID string   `json:"disciple_id"`
+		WeightKG   *float64 `json:"weight_kg"`
+		Notes      *string  `json:"notes"`
+	}
+	e2eDecode(t, resp, &out)
+	if out.ID != checkinID || out.DiscipleID != discipleID || out.WeightKG == nil || *out.WeightKG != weight || out.Notes == nil || *out.Notes != notes {
+		t.Fatalf("checkin detail=%#v want id=%s disciple=%s weight=%v notes=%q", out, checkinID, discipleID, weight, notes)
 	}
 }
 
