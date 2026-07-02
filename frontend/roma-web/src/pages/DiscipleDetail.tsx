@@ -6,6 +6,8 @@ import { useToast } from '@/components/toast/ToastProvider'
 import { getDiscipleOverview, getDiscipleToday } from '@/services/disciples'
 import { getCoachDisciples } from '@/services/coach'
 import { listCoachDiscipleCheckins } from '@/services/checkins'
+import { getCoachAssignments } from '@/services/assignments'
+import { getHistorySessions } from '@/services/history'
 import { startSession, addSet, listSets } from '@/services/sessions'
 
 import type { Overview  } from '@/types/disciples'
@@ -41,6 +43,10 @@ function formatAdherence(ov?: Overview, decimals = 1) {
 function formatCheckinDate(value: string) {
   if (!value) return '-'
   return new Date(value).toLocaleDateString('es-CL', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+function formatSessionDate(value: string) {
+  if (!value) return '-'
+  return new Date(value).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 // UI: lista de prescripciones
@@ -105,6 +111,12 @@ export default function DiscipleDetail() {
     const found = list.find(d => String(d.id) === String(id))
     return found?.name ?? id
   }, [location.state?.name, disciplesQ.data, id])
+  const displayEmail = useMemo(() => {
+    if (location.state?.email) return location.state.email
+    const list = (disciplesQ.data ?? []) as CoachDisciple[]
+    const found = list.find(d => String(d.id) === String(id))
+    return found?.email ?? ''
+  }, [location.state?.email, disciplesQ.data, id])
 
   // Datos principales
   const todayQ = useQuery({
@@ -127,12 +139,27 @@ export default function DiscipleDetail() {
     enabled: !!id,
     staleTime: 30_000,
   })
+  const assignmentsQ = useQuery({
+    queryKey: ['coach', 'assignments', 'disciple', id],
+    queryFn: getCoachAssignments,
+    enabled: !!id,
+    staleTime: 30_000,
+  })
+  const recentSessionsQ = useQuery({
+    queryKey: ['coach', 'disciple', id, 'history', 'sessions'],
+    queryFn: () => getHistorySessions({ discipleId: id, status: 'closed', limit: 5 }),
+    enabled: !!id,
+    staleTime: 30_000,
+  })
   useEffect(() => { if (overviewQ.isError) show({ type: 'error', message: 'Error al cargar overview' }) }, [overviewQ.isError, show])
   useEffect(() => { if (todayQ.isError) show({ type: 'error', message: 'Error al cargar datos de hoy' }) }, [todayQ.isError, show])
 
   const ov = overviewQ.data
   const today = todayQ.data
   const sidFromToday = today?.current_session_id ?? null
+  const activeAssignment = useMemo(() => {
+    return (assignmentsQ.data ?? []).find((assignment) => String(assignment.disciple_id) === String(id) && assignment.is_active)
+  }, [assignmentsQ.data, id])
 
   // Sincroniza local + store con el current_session_id que viene del backend (efecto único)
   useEffect(() => {
@@ -275,6 +302,30 @@ export default function DiscipleDetail() {
         </div>
       </div>
 
+      <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
+        <div className="font-semibold mb-3">Resumen del discípulo</div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+          <div>
+            <div className="text-xs text-gray-500 dark:text-neutral-400">Nombre</div>
+            <div className="font-medium">{displayName}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 dark:text-neutral-400">Email</div>
+            <div className="font-medium">{displayEmail || '-'}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 dark:text-neutral-400">Vínculo</div>
+            <div className="font-medium">{disciplesQ.isLoading ? 'Cargando...' : 'Activo'}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 dark:text-neutral-400">Rutina activa</div>
+            <div className="font-medium">
+              {assignmentsQ.isLoading ? 'Cargando...' : activeAssignment?.program_title?.trim() || 'Sin rutina activa'}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
           <div className="font-semibold mb-2">Overview</div>
@@ -334,6 +385,57 @@ export default function DiscipleDetail() {
       </div>
 
       <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <div className="font-semibold">Últimos entrenamientos</div>
+          <NavLink
+            to={`/history?disciple_id=${id}`}
+            className="text-xs rounded border px-2 py-1 bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-blue-600"
+          >
+            Ver historial completo
+          </NavLink>
+        </div>
+        {recentSessionsQ.isLoading && <div className="text-sm text-gray-500">Cargando entrenamientos...</div>}
+        {recentSessionsQ.isError && <div className="text-sm text-red-600">No se pudieron cargar los entrenamientos.</div>}
+        {!recentSessionsQ.isLoading && !recentSessionsQ.isError && (recentSessionsQ.data?.items ?? []).length === 0 && (
+          <div className="text-sm text-gray-500">Este discípulo aún no tiene entrenamientos registrados.</div>
+        )}
+        <ul className="space-y-2">
+          {(recentSessionsQ.data?.items ?? []).map((session) => (
+            <li key={session.session_id} className="rounded border px-3 py-3 dark:border-neutral-800">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium">{session.program_title?.trim() || 'Rutina'}</div>
+                  <div className="mt-1 text-xs text-gray-600 dark:text-neutral-300">
+                    {formatSessionDate(session.performed_at)} · {session.status === 'closed' ? 'Finalizada' : 'Abierta'}
+                  </div>
+                  <div className="mt-1 text-xs text-gray-600 dark:text-neutral-300">
+                    {session.week_index && session.day_index
+                      ? `Semana ${session.week_index} · Día ${session.day_index}`
+                      : 'Día de entrenamiento'}
+                    {session.day_title?.trim() ? ` · ${session.day_title}` : ''}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600 dark:text-neutral-300">
+                    <span className="rounded border px-2 py-1 dark:border-neutral-800">
+                      {session.sets} set{session.sets === 1 ? '' : 's'}
+                    </span>
+                    <span className="rounded border px-2 py-1 dark:border-neutral-800">
+                      Volumen {session.volume ? session.volume.toLocaleString() : '-'}
+                    </span>
+                  </div>
+                </div>
+                <NavLink
+                  to={`/sessions/${session.session_id}`}
+                  className="text-xs rounded border px-2 py-1 bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-blue-600"
+                >
+                  Ver resumen
+                </NavLink>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
         <div className="font-semibold mb-2">Check-ins recientes</div>
         {checkinsQ.isLoading && <div className="text-sm text-gray-500">Cargando check-ins...</div>}
         {checkinsQ.isError && <div className="text-sm text-red-600">No se pudieron cargar los check-ins.</div>}
@@ -357,6 +459,24 @@ export default function DiscipleDetail() {
             </li>
           ))}
         </ul>
+      </div>
+
+      <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
+        <div className="font-semibold mb-2">Accesos rápidos</div>
+        <div className="flex flex-wrap gap-2">
+          <NavLink
+            to={`/history?disciple_id=${id}`}
+            className="text-sm rounded border px-3 py-2 bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-blue-600"
+          >
+            Ver historial completo
+          </NavLink>
+          <NavLink
+            to="/assignments"
+            className="text-sm rounded border px-3 py-2 bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-blue-600"
+          >
+            Ver asignaciones
+          </NavLink>
+        </div>
       </div>
 
       <Modal

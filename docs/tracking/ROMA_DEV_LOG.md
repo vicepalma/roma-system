@@ -139,6 +139,13 @@ Resultado: detalle de disciple muestra ultimos 5 check-ins con fecha, peso y not
 Validado: `npm run build`.
 Pendiente: filtros por fecha y detalle historico de check-ins si crece el volumen.
 
+### CHK-018 - Vista coach de progreso del disciple
+Estado: Completado.
+Objetivo: compactar el detalle del disciple para revisar estado, sesiones recientes y seguimiento.
+Resultado: detalle muestra resumen, rutina activa, ultimos entrenamientos, check-ins y accesos a historial/asignaciones; Historial acepta `disciple_id`.
+Validado: `npm run build`.
+Pendiente: mejorar vista completa de historial coach con nombre del disciple y opciones de contexto.
+
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
 - Ampliar E2E cuando aparezcan endpoints de editar sets/check-ins.

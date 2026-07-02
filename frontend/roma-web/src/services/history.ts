@@ -22,11 +22,13 @@ export async function getHistorySessions(params: {
   to?: string
   status?: '' | 'open' | 'closed'
   programId?: string
+  discipleId?: string
   limit?: number
 }) {
   const { data } = await api.get<{ items: HistorySession[]; total: number }>('/api/history', {
     params: {
       group: 'session',
+      disciple_id: params.discipleId || undefined,
       from: params.from || undefined,
       to: params.to || undefined,
       status: params.status || undefined,

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getHistoryPivot, getHistorySessions } from '@/services/history'
 import { listMyPrograms } from '@/services/programs'
@@ -16,6 +16,8 @@ function todayISO() {
 }
 
 export default function History() {
+  const [searchParams] = useSearchParams()
+  const discipleId = searchParams.get('disciple_id') || ''
   const [days, setDays] = useState(14)
   const [mode, setMode] = useState<'by_exercise'|'by_muscle'>('by_exercise')
   const [from, setFrom] = useState(dateISOOffset(14))
@@ -29,8 +31,8 @@ export default function History() {
     staleTime: 30_000,
   })
   const sessionsQ = useQuery({
-    queryKey: ['history', 'sessions', from, to, status, programId],
-    queryFn: () => getHistorySessions({ from, to, status, programId }),
+    queryKey: ['history', 'sessions', discipleId, from, to, status, programId],
+    queryFn: () => getHistorySessions({ discipleId, from, to, status, programId }),
     staleTime: 15_000,
   })
   const programsQ = useQuery({
@@ -42,6 +44,11 @@ export default function History() {
   return (
     <div className="mx-auto max-w-6xl p-6 space-y-4">
       <h2 className="text-xl font-semibold">Historial</h2>
+      {discipleId && (
+        <div className="rounded border bg-white p-3 text-sm dark:bg-neutral-900 dark:border-neutral-800">
+          Historial del discípulo seleccionado.
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <label className="text-sm">Días</label>
         <select value={days} onChange={(e) => setDays(Number(e.target.value))}
