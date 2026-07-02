@@ -136,6 +136,22 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 		"reps":            10,
 	}, http.StatusBadRequest)
 	e2eRequest(t, r, http.MethodDelete, "/api/sessions/"+sessionID+"/sets/"+setID, disciple2Token, nil, http.StatusForbidden)
+	e2eRequest(t, r, http.MethodPatch, "/api/sessions/"+sessionID, disciple2Token, gin.H{
+		"status":   "closed",
+		"ended_at": "2026-06-29T12:00:00Z",
+	}, http.StatusForbidden)
+	e2eRequest(t, r, http.MethodPatch, "/api/sessions/"+sessionID, disciple1Token, gin.H{
+		"status":   "closed",
+		"ended_at": "2026-06-29T12:00:00Z",
+	}, http.StatusOK)
+	e2eRequest(t, r, http.MethodGet, "/api/me/session/active", disciple1Token, nil, http.StatusNotFound)
+	e2eRequest(t, r, http.MethodPost, "/api/sessions/"+sessionID+"/sets", disciple1Token, gin.H{
+		"prescription_id": prescriptionID,
+		"set_index":       2,
+		"reps":            9,
+	}, http.StatusConflict)
+	e2eRequest(t, r, http.MethodDelete, "/api/sessions/"+sessionID+"/sets/"+setID, disciple1Token, nil, http.StatusConflict)
+	e2eRequest(t, r, http.MethodGet, "/api/sessions/"+sessionID, disciple1Token, nil, http.StatusOK)
 
 	e2eSetAssignmentActive(t, db, assignmentID, false)
 	e2eRequest(t, r, http.MethodPost, "/api/sessions", disciple1Token, gin.H{

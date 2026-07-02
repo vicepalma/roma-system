@@ -5,6 +5,8 @@ export type SessionLog = {
   disciple_id: string
   day_id: string
   performed_at: string
+  status?: 'open' | 'closed'
+  ended_at?: string | null
   notes?: string | null
 }
 

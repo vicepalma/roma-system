@@ -342,6 +342,15 @@ func IsSessionOwnedByDisciple(db *gorm.DB, actorID, sessionID string) (bool, err
 	return count > 0, err
 }
 
+func IsSessionOpen(db *gorm.DB, sessionID string) (bool, error) {
+	var status string
+	err := db.Table("session_logs").Select("status").Where("id = ?", sessionID).Scan(&status).Error
+	if err != nil {
+		return false, err
+	}
+	return status == "open", nil
+}
+
 func CanAccessSet(db *gorm.DB, actorID, setID string) (bool, error) {
 	var row struct{ DiscipleID string }
 	err := db.Table("set_logs AS st").
@@ -365,6 +374,19 @@ func IsSetOwnedByDisciple(db *gorm.DB, actorID, setID string) (bool, error) {
 		Where("st.id = ? AND s.disciple_id = ?", setID, actorID).
 		Count(&count).Error
 	return count > 0, err
+}
+
+func IsSetSessionOpen(db *gorm.DB, setID string) (bool, error) {
+	var status string
+	err := db.Table("set_logs AS st").
+		Select("s.status").
+		Joins("JOIN session_logs s ON s.id = st.session_id").
+		Where("st.id = ?", setID).
+		Scan(&status).Error
+	if err != nil {
+		return false, err
+	}
+	return status == "open", nil
 }
 
 func IsAssignmentDay(db *gorm.DB, assignmentID, dayID string) (bool, error) {

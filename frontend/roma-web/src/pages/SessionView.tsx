@@ -1,9 +1,9 @@
-import { useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useToast } from '@/components/toast/ToastProvider'
 import { getSession, addSet, deleteSet, patchSession, endSession } from '@/services/sessions'
-import { listPrescriptions } from '@/services/programs'
+import { getProgram, listPrescriptions } from '@/services/programs'
 import { AssignmentDay } from '@/types/assignments'
 import { listAssignmentDays, getMyActiveAssignment } from '@/services/assignments'
 import Modal from '@/components/ui/Modal'
@@ -42,6 +42,13 @@ export default function SessionView() {
     staleTime: 30_000,
   })
   const active = activeQ.data || null
+
+  const programQ = useQuery({
+    queryKey: ['programs', active?.program_id, 'session-summary'],
+    queryFn: () => getProgram(active!.program_id),
+    enabled: !!active?.program_id && !!sess?.assignment_id && active.id === sess.assignment_id,
+    staleTime: 30_000,
+  })
 
   const showMismatchBanner = Boolean(
     sess && active?.id && sess.assignment_id !== active.id
@@ -147,10 +154,9 @@ export default function SessionView() {
     mutationFn: () => endSession(sessionIdParam),
     onSuccess: async () => {
       show({ type: 'success', message: 'Sesión finalizada' })
-      // limpia caches clave
       await qc.invalidateQueries({ queryKey: ['me', 'session', 'active'] })
       await qc.invalidateQueries({ queryKey: ['session', sessionIdParam] })
-      navigate('/sessions')
+      await qc.invalidateQueries({ queryKey: ['history'], exact: false })
     },
     onError: () => show({ type: 'error', message: 'No se pudo finalizar la sesión' }),
   })
@@ -162,6 +168,17 @@ export default function SessionView() {
 
   const prescIdsOfEffectiveDay = new Set(presc.map((p: any) => p.id))
   const isOffPlan = (prescriptionId: string) => !prescIdsOfEffectiveDay.has(prescriptionId)
+  const summary = useMemo(() => {
+    const exerciseKeys = new Set<string>()
+    let volume = 0
+    for (const s of sets as any[]) {
+      exerciseKeys.add(s.exercise_id || s.exercise_name || s.prescription_id)
+      if (typeof s.weight === 'number' && typeof s.reps === 'number') {
+        volume += s.weight * s.reps
+      }
+    }
+    return { exercisesCount: exerciseKeys.size, totalSets: sets.length, volume }
+  }, [sets])
 
   return (
     <div className="space-y-4">
@@ -169,15 +186,53 @@ export default function SessionView() {
       {isClosed && (
         <div className="rounded-lg border bg-gray-50 dark:bg-neutral-800/50 dark:border-neutral-700 p-3 flex items-center justify-between">
           <div className="text-sm">
-            <b>Sesión cerrada.</b> Esta fue tu última sesión registrada y está en modo lectura.
+            <b>Sesión finalizada.</b> El entrenamiento está en modo lectura.
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate('/sessions')}
-              className={baseBtn}
-            >
-              Ir a Sesiones
-            </button>
+            <Link to="/history" className={baseBtn}>Ver historial</Link>
+            <Link to="/sessions" className={baseBtn}>Volver a Entrenar</Link>
+          </div>
+        </div>
+      )}
+
+      {isClosed && (
+        <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
+          <div className="font-semibold mb-2">Resumen de sesión</div>
+          <div className="grid gap-2 text-sm sm:grid-cols-2">
+            <div>
+              <div className="text-xs text-gray-500">Fecha</div>
+              <div>{sess?.performed_at ? new Date(sess.performed_at).toLocaleString() : '—'}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Finalizada</div>
+              <div>{sess?.ended_at ? new Date(sess.ended_at).toLocaleString() : '—'}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Rutina</div>
+              <div>{programQ.data?.title?.trim() || 'Rutina'}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Día</div>
+              <div>{selectedDay ? `Semana ${selectedDay.week_index} · Día ${selectedDay.day_index}` : 'Día de entrenamiento'}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Ejercicios con sets</div>
+              <div>{summary.exercisesCount}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Sets totales</div>
+              <div>{summary.totalSets}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Volumen</div>
+              <div>{summary.volume ? summary.volume.toLocaleString() : '—'}</div>
+            </div>
+            {sess?.notes && (
+              <div>
+                <div className="text-xs text-gray-500">Notas</div>
+                <div>{sess.notes}</div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -305,15 +360,19 @@ export default function SessionView() {
           </ul>
         )}
 
-        {/* Entrenamiento terminado - oculto si cerrada */}
+        {/* Finalizar sesión - oculto si cerrada */}
         {!isClosed && (
           <div className="pt-3">
             <button
-              onClick={() => mEnd.mutate()}
+              onClick={() => {
+                if (confirm('¿Finalizar esta sesión? No podrás agregar ni borrar sets después.')) {
+                  mEnd.mutate()
+                }
+              }}
               disabled={mEnd.isPending}
               className={baseBtn}
             >
-              {mEnd.isPending ? 'Cerrando…' : 'Entrenamiento terminado'}
+              {mEnd.isPending ? 'Finalizando…' : 'Finalizar sesión'}
             </button>
           </div>
         )}

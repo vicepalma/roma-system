@@ -106,6 +106,12 @@ Objetivo: permitir activar rutina B sin violar `assignments_check`.
 Resultado: desactivar self-assignments anteriores solo cambia `is_active=false`; E2E cubre activaciones futuras/mismo dia.
 Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
 
+### CHK-013 - Cierre de sesion y resumen
+Estado: Completado.
+Objetivo: cerrar sesion, bloquear mutaciones posteriores y mostrar resumen basico.
+Resultado: `PATCH /api/sessions/:id` cierra con `status=closed`; sets/cardio/delete quedan bloqueados con `409`; frontend muestra resumen.
+Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
+
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
 - Ampliar E2E cuando aparezcan endpoints de editar sets/check-ins.

@@ -3,6 +3,7 @@ package http
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -143,6 +144,15 @@ func (h *SessionHandler) addSet(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}
+	ok, err = security.IsSessionOpen(h.db.WithContext(c.Request.Context()), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusConflict, gin.H{"error": "session_closed"})
+		return
+	}
 	ok, err = security.IsPrescriptionInSessionDay(h.db.WithContext(c.Request.Context()), id, body.PrescriptionID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
@@ -181,6 +191,15 @@ func (h *SessionHandler) addCardio(c *gin.Context) {
 	}
 	if !ok {
 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	ok, err = security.IsSessionOpen(h.db.WithContext(c.Request.Context()), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusConflict, gin.H{"error": "session_closed"})
 		return
 	}
 	seg, err := h.svc.AddCardio(c, uid(c), id, body.Modality, body.Minutes, body.HRMin, body.HRMax, body.Notes)
@@ -260,6 +279,15 @@ func (h *SessionHandler) deleteSet(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}
+	ok, err = security.IsSetSessionOpen(h.db.WithContext(c.Request.Context()), setID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusConflict, gin.H{"error": "session_closed"})
+		return
+	}
 	if err := h.svc.DeleteSet(c.Request.Context(), setID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot_delete"})
 		return
@@ -286,6 +314,26 @@ func (h *SessionHandler) patchSession(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request"})
+		return
+	}
+	open, err := security.IsSessionOpen(h.db.WithContext(c.Request.Context()), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		return
+	}
+	wantsClose := body.Status != nil && strings.ToLower(strings.TrimSpace(*body.Status)) == "closed"
+	closeOnly := wantsClose && body.PerformedAt == nil && body.Notes == nil
+	if !open && !closeOnly {
+		c.JSON(http.StatusConflict, gin.H{"error": "session_closed"})
+		return
+	}
+	if !open && closeOnly {
+		out, err := h.svc.GetSession(c.Request.Context(), id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not_found"})
+			return
+		}
+		c.JSON(http.StatusOK, out)
 		return
 	}
 
