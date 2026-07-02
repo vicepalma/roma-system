@@ -132,6 +132,13 @@ Resultado: `checkins.checked_at` agregado; disciple crea/lista/ve propios; coach
 Validado: migraciones 0001-0007 en DB temporal limpia; `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
 Pendiente: UI coach para check-ins en detalle de disciple; edicion/borrado quedan fuera.
 
+### CHK-017 - Check-ins en vista coach/disciple
+Estado: Completado.
+Objetivo: permitir al coach revisar check-ins recientes del disciple vinculado.
+Resultado: detalle de disciple muestra ultimos 5 check-ins con fecha, peso y notas usando `GET /api/coach/disciples/:id/checkins`.
+Validado: `npm run build`.
+Pendiente: filtros por fecha y detalle historico de check-ins si crece el volumen.
+
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
 - Ampliar E2E cuando aparezcan endpoints de editar sets/check-ins.

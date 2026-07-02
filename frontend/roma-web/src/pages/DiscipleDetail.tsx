@@ -5,6 +5,7 @@ import { useToast } from '@/components/toast/ToastProvider'
 
 import { getDiscipleOverview, getDiscipleToday } from '@/services/disciples'
 import { getCoachDisciples } from '@/services/coach'
+import { listCoachDiscipleCheckins } from '@/services/checkins'
 import { startSession, addSet, listSets } from '@/services/sessions'
 
 import type { Overview  } from '@/types/disciples'
@@ -36,6 +37,10 @@ function formatAdherence(ov?: Overview, decimals = 1) {
     return `${pct}% (${withSets}/${days} días)`
   }
   return '-'
+}
+function formatCheckinDate(value: string) {
+  if (!value) return '-'
+  return new Date(value).toLocaleDateString('es-CL', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 // UI: lista de prescripciones
@@ -115,6 +120,12 @@ export default function DiscipleDetail() {
     enabled: !!id,
     retry: 1,
     retryDelay: 800,
+  })
+  const checkinsQ = useQuery({
+    queryKey: ['coach', 'disciple', id, 'checkins'],
+    queryFn: () => listCoachDiscipleCheckins(id, 5),
+    enabled: !!id,
+    staleTime: 30_000,
   })
   useEffect(() => { if (overviewQ.isError) show({ type: 'error', message: 'Error al cargar overview' }) }, [overviewQ.isError, show])
   useEffect(() => { if (todayQ.isError) show({ type: 'error', message: 'Error al cargar datos de hoy' }) }, [todayQ.isError, show])
@@ -320,6 +331,32 @@ export default function DiscipleDetail() {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
+        <div className="font-semibold mb-2">Check-ins recientes</div>
+        {checkinsQ.isLoading && <div className="text-sm text-gray-500">Cargando check-ins...</div>}
+        {checkinsQ.isError && <div className="text-sm text-red-600">No se pudieron cargar los check-ins.</div>}
+        {!checkinsQ.isLoading && !checkinsQ.isError && (checkinsQ.data?.items ?? []).length === 0 && (
+          <div className="text-sm text-gray-500">Este discípulo aún no tiene check-ins.</div>
+        )}
+        <ul className="space-y-2">
+          {(checkinsQ.data?.items ?? []).map((item) => (
+            <li key={item.id} className="rounded border px-3 py-3 dark:border-neutral-800">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium">{formatCheckinDate(item.checked_at)}</div>
+                  <div className="mt-1 text-sm text-gray-700 dark:text-neutral-300">
+                    {item.notes?.trim() || 'Sin notas'}
+                  </div>
+                </div>
+                <div className="rounded border px-2 py-1 text-xs dark:border-neutral-800">
+                  {item.weight_kg ? `${item.weight_kg} kg` : 'Sin peso'}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <Modal

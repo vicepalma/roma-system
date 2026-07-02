@@ -17,6 +17,16 @@ export async function listCheckins() {
   }
 }
 
+export async function listCoachDiscipleCheckins(discipleId: string, limit = 5) {
+  const { data } = await api.get<{ items?: Checkin[]; total?: number }>(`/api/coach/disciples/${discipleId}/checkins`, {
+    params: { limit },
+  })
+  return {
+    items: data.items ?? [],
+    total: data.total ?? 0,
+  }
+}
+
 export async function createCheckin(payload: {
   checked_at?: string
   weight_kg?: number | null
