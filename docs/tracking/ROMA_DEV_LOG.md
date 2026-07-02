@@ -118,6 +118,13 @@ Objetivo: listar sesiones realizadas con metadata y link a resumen.
 Resultado: `/api/history` y `/api/sessions/:id` incluyen programa/semana/dia; Historial lista sesiones con sets, ejercicios y volumen.
 Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
 
+### CHK-015 - Filtros backend de historial
+Estado: Completado.
+Objetivo: filtrar sesiones desde backend por `from`, `to`, `status` y `program_id`.
+Resultado: `/api/history?group=session` y `/api/history/disciples/:id/sessions` validan filtros y los aplican en SQL; Historial envia filtros reales sin recortar localmente los ultimos 50 items.
+Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
+Pendiente: selector de rutina depende de programas visibles por `/api/programs`; revisar si debe incluir historicos asignados por coach ya no listados.
+
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
 - Ampliar E2E cuando aparezcan endpoints de editar sets/check-ins.

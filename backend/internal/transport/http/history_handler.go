@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/vicepalma/roma-system/backend/internal/repository"
 	"github.com/vicepalma/roma-system/backend/internal/security"
 	"github.com/vicepalma/roma-system/backend/internal/service"
 	"gorm.io/gorm"
@@ -57,10 +59,21 @@ func (h *HistoryHandler) history(c *gin.Context) {
 	group := c.DefaultQuery("group", "session")
 	tz := c.DefaultQuery("tz", h.defTz)
 
-	from, to := parseDates(c.Query("from")), parseDates(c.Query("to"))
+	from, ok := parseDateParam(c, "from")
+	if !ok {
+		return
+	}
+	to, ok := parseDateParam(c, "to")
+	if !ok {
+		return
+	}
+	filter, ok := parseHistorySessionFilter(c)
+	if !ok {
+		return
+	}
 	limit, offset := parsePag(c.DefaultQuery("limit", "50")), parsePag(c.DefaultQuery("offset", "0"))
 
-	data, total, err := h.svc.History(c.Request.Context(), discipleID, tz, group, from, to, limit, offset)
+	data, total, err := h.svc.History(c.Request.Context(), discipleID, tz, group, from, to, filter, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
 		return
@@ -74,10 +87,21 @@ func (h *HistoryHandler) sessions(c *gin.Context) {
 		return
 	}
 	tz := c.DefaultQuery("tz", h.defTz)
-	from, to := parseDates(c.Query("from")), parseDates(c.Query("to"))
+	from, ok := parseDateParam(c, "from")
+	if !ok {
+		return
+	}
+	to, ok := parseDateParam(c, "to")
+	if !ok {
+		return
+	}
+	filter, ok := parseHistorySessionFilter(c)
+	if !ok {
+		return
+	}
 	limit, offset := parsePag(c.DefaultQuery("limit", "50")), parsePag(c.DefaultQuery("offset", "0"))
 
-	data, total, err := h.svc.ListSessions(c.Request.Context(), discipleID, tz, from, to, limit, offset)
+	data, total, err := h.svc.ListSessions(c.Request.Context(), discipleID, tz, from, to, filter, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
 		return
@@ -204,6 +228,39 @@ func parseDates(s string) *time.Time {
 		return &t
 	}
 	return nil
+}
+
+func parseDateParam(c *gin.Context, name string) (*time.Time, bool) {
+	raw := strings.TrimSpace(c.Query(name))
+	if raw == "" {
+		return nil, true
+	}
+	parsed := parseDates(raw)
+	if parsed == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_" + name})
+		return nil, false
+	}
+	return parsed, true
+}
+
+func parseHistorySessionFilter(c *gin.Context) (repository.HistorySessionFilter, bool) {
+	var filter repository.HistorySessionFilter
+	if raw := strings.TrimSpace(c.Query("status")); raw != "" {
+		status := strings.ToLower(raw)
+		if status != "open" && status != "closed" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_status"})
+			return filter, false
+		}
+		filter.Status = &status
+	}
+	if raw := strings.TrimSpace(c.Query("program_id")); raw != "" {
+		if _, err := uuid.Parse(raw); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_program_id"})
+			return filter, false
+		}
+		filter.ProgramID = &raw
+	}
+	return filter, true
 }
 func parsePag(s string) int {
 	n, _ := strconv.Atoi(s)

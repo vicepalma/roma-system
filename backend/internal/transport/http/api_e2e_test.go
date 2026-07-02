@@ -112,6 +112,7 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 	sessionID := e2ePostID(t, r, http.MethodPost, "/api/sessions", disciple1Token, gin.H{
 		"assignment_id": assignmentID,
 		"day_id":        dayID,
+		"performed_at":  "2026-06-29T10:00:00Z",
 	}, http.StatusCreated)
 	e2eRequest(t, r, http.MethodPost, "/api/sessions", disciple2Token, gin.H{
 		"assignment_id": assignmentID,
@@ -153,6 +154,41 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 	e2eRequest(t, r, http.MethodDelete, "/api/sessions/"+sessionID+"/sets/"+setID, disciple1Token, nil, http.StatusConflict)
 	e2eAssertSessionDetailMeta(t, r, disciple1Token, sessionID, programID, "E2E Coach Program", 1, 1)
 	e2eAssertHistorySession(t, r, disciple1Token, sessionID, "E2E Coach Program", 1, 1, 1, 1, 800)
+
+	openSessionID := e2ePostID(t, r, http.MethodPost, "/api/sessions", disciple1Token, gin.H{
+		"assignment_id": assignmentID,
+		"day_id":        dayID,
+		"performed_at":  "2026-07-02T10:00:00Z",
+	}, http.StatusCreated)
+	altProgramID := e2eCreateProgram(t, r, coach1Token, "E2E Coach Program Alt")
+	altWeekID := e2ePostID(t, r, http.MethodPost, "/api/programs/"+altProgramID+"/weeks", coach1Token, gin.H{"week_index": 1}, http.StatusCreated)
+	altDayID := e2ePostID(t, r, http.MethodPost, "/api/programs/"+altProgramID+"/weeks/"+altWeekID+"/days", coach1Token, gin.H{"day_index": 1}, http.StatusCreated)
+	e2ePostID(t, r, http.MethodPost, "/api/programs/days/"+altDayID+"/prescriptions", coach1Token, gin.H{
+		"exercise_id": exerciseID,
+		"series":      2,
+		"reps":        "12",
+		"position":    1,
+	}, http.StatusCreated)
+	altAssignmentID := e2ePostID(t, r, http.MethodPost, "/api/coach/assignments", coach1Token, gin.H{
+		"disciple_id": disciple1ID,
+		"program_id":  altProgramID,
+		"start_date":  "2026-07-03",
+	}, http.StatusCreated)
+	e2eRequest(t, r, http.MethodPost, "/api/coach/assignments/"+altAssignmentID+"/activate?disciple_id="+disciple1ID, coach1Token, nil, http.StatusNoContent)
+	altSessionID := e2ePostID(t, r, http.MethodPost, "/api/sessions", disciple1Token, gin.H{
+		"assignment_id": altAssignmentID,
+		"day_id":        altDayID,
+		"performed_at":  "2026-07-03T10:00:00Z",
+	}, http.StatusCreated)
+	e2eAssertHistoryFilter(t, r, disciple1Token, "&from=2026-07-01", []string{openSessionID, altSessionID}, []string{sessionID})
+	e2eAssertHistoryFilter(t, r, disciple1Token, "&to=2026-06-29", []string{sessionID}, []string{openSessionID, altSessionID})
+	e2eAssertHistoryFilter(t, r, disciple1Token, "&status=closed", []string{sessionID}, []string{openSessionID})
+	e2eAssertHistoryFilter(t, r, disciple1Token, "&status=open", []string{openSessionID, altSessionID}, []string{sessionID})
+	e2eAssertHistoryFilter(t, r, disciple1Token, "&program_id="+programID, []string{sessionID, openSessionID}, []string{altSessionID})
+	e2eAssertHistoryFilter(t, r, disciple1Token, "&program_id="+altProgramID, []string{altSessionID}, []string{sessionID, openSessionID})
+	e2eRequest(t, r, http.MethodGet, "/api/history?group=session&status=done", disciple1Token, nil, http.StatusBadRequest)
+	e2eRequest(t, r, http.MethodGet, "/api/history?group=session&from=not-a-date", disciple1Token, nil, http.StatusBadRequest)
+	e2eRequest(t, r, http.MethodGet, "/api/history?group=session&program_id=not-a-uuid", disciple1Token, nil, http.StatusBadRequest)
 
 	e2eSetAssignmentActive(t, db, assignmentID, false)
 	e2eRequest(t, r, http.MethodPost, "/api/sessions", disciple1Token, gin.H{
@@ -444,6 +480,31 @@ func e2eAssertHistorySession(t *testing.T, r http.Handler, token, sessionID, pro
 		return
 	}
 	t.Fatalf("history did not include session %s: %#v", sessionID, out.Items)
+}
+
+func e2eAssertHistoryFilter(t *testing.T, r http.Handler, token, query string, wantIDs, absentIDs []string) {
+	t.Helper()
+	resp := e2eRequest(t, r, http.MethodGet, "/api/history?group=session"+query, token, nil, http.StatusOK)
+	var out struct {
+		Items []struct {
+			SessionID string `json:"session_id"`
+		} `json:"items"`
+	}
+	e2eDecode(t, resp, &out)
+	got := map[string]struct{}{}
+	for _, item := range out.Items {
+		got[item.SessionID] = struct{}{}
+	}
+	for _, id := range wantIDs {
+		if _, ok := got[id]; !ok {
+			t.Fatalf("history query %q missing session %s; got %#v", query, id, out.Items)
+		}
+	}
+	for _, id := range absentIDs {
+		if _, ok := got[id]; ok {
+			t.Fatalf("history query %q unexpectedly included session %s; got %#v", query, id, out.Items)
+		}
+	}
 }
 
 func e2eSetAssignmentActive(t *testing.T, db *gorm.DB, assignmentID string, active bool) {

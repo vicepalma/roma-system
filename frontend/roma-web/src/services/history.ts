@@ -17,16 +17,25 @@ export type HistorySession = {
   volume: number
 }
 
-export async function getHistorySessions(params: { days: number }) {
+export async function getHistorySessions(params: {
+  from?: string
+  to?: string
+  status?: '' | 'open' | 'closed'
+  programId?: string
+  limit?: number
+}) {
   const { data } = await api.get<{ items: HistorySession[]; total: number }>('/api/history', {
     params: {
       group: 'session',
-      limit: 50,
+      from: params.from || undefined,
+      to: params.to || undefined,
+      status: params.status || undefined,
+      program_id: params.programId || undefined,
+      limit: params.limit ?? 100,
     },
   })
-  const cutoff = Date.now() - params.days * 24 * 60 * 60 * 1000
   return {
-    items: (data.items ?? []).filter((item) => new Date(item.performed_at).getTime() >= cutoff),
+    items: data.items ?? [],
     total: data.total ?? 0,
   }
 }

@@ -75,8 +75,8 @@ type HistoryService interface {
 	GetPivotByExerciseFor(ctx context.Context, discipleID string, days int, metric, tz string, includeCatalog bool) (*PivotResponse, error)
 	GetAdherence(ctx context.Context, discipleID string, days int, tz string) (Adherence, error)
 
-	History(ctx context.Context, discipleID, tz, group string, from, to *time.Time, limit, offset int) (any, int64, error)
-	ListSessions(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) (any, int64, error)
+	History(ctx context.Context, discipleID, tz, group string, from, to *time.Time, filter repository.HistorySessionFilter, limit, offset int) (any, int64, error)
+	ListSessions(ctx context.Context, discipleID, tz string, from, to *time.Time, filter repository.HistorySessionFilter, limit, offset int) (any, int64, error)
 	PlanVsDone(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) (any, int64, error)
 }
 
@@ -408,16 +408,16 @@ func (s *historyService) GetAdherence(ctx context.Context, discipleID string, da
 	return Adherence{DaysWithSets: len(seen)}, nil
 }
 
-func (s *historyService) History(ctx context.Context, discipleID, tz, group string, from, to *time.Time, limit, offset int) (any, int64, error) {
+func (s *historyService) History(ctx context.Context, discipleID, tz, group string, from, to *time.Time, filter repository.HistorySessionFilter, limit, offset int) (any, int64, error) {
 	if group == "day" {
 		return s.repo.GetDaysAggregate(ctx, discipleID, tz, from, to, limit, offset)
 	}
 	// por defecto: session
-	return s.repo.GetSessionsHistory(ctx, discipleID, tz, from, to, limit, offset)
+	return s.repo.GetSessionsHistory(ctx, discipleID, tz, from, to, filter, limit, offset)
 }
 
-func (s *historyService) ListSessions(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) (any, int64, error) {
-	return s.repo.ListDiscipleSessions(ctx, discipleID, tz, from, to, limit, offset)
+func (s *historyService) ListSessions(ctx context.Context, discipleID, tz string, from, to *time.Time, filter repository.HistorySessionFilter, limit, offset int) (any, int64, error) {
+	return s.repo.ListDiscipleSessions(ctx, discipleID, tz, from, to, filter, limit, offset)
 }
 
 func (s *historyService) PlanVsDone(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) (any, int64, error) {

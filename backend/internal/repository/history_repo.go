@@ -68,6 +68,11 @@ type MeTodayPrescription struct {
 var ErrNoDay = errors.New("no_day")
 
 type (
+	HistorySessionFilter struct {
+		Status    *string
+		ProgramID *string
+	}
+
 	// Para /history?group=session
 	HistorySessionRow struct {
 		SessionID      string     `json:"session_id"`
@@ -122,11 +127,11 @@ type HistoryRepository interface {
 	ActiveAssignmentForToday(ctx context.Context, discipleID, tz string) (string, error)
 
 	// history (group=session|day)
-	GetSessionsHistory(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) ([]HistorySessionRow, int64, error)
+	GetSessionsHistory(ctx context.Context, discipleID, tz string, from, to *time.Time, filter HistorySessionFilter, limit, offset int) ([]HistorySessionRow, int64, error)
 	GetDaysAggregate(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) ([]HistoryDayAgg, int64, error)
 
 	// /disciples/:id/sessions
-	ListDiscipleSessions(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) ([]DiscipleSessionRow, int64, error)
+	ListDiscipleSessions(ctx context.Context, discipleID, tz string, from, to *time.Time, filter HistorySessionFilter, limit, offset int) ([]DiscipleSessionRow, int64, error)
 
 	// /disciples/:id/days
 	ListPlanVsDone(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) ([]PlanVsDoneRow, int64, error)
@@ -371,7 +376,7 @@ func dateFloorTZ(col, tz string) string {
 }
 
 // ========== /history?group=session ==========
-func (r *historyRepository) GetSessionsHistory(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) ([]HistorySessionRow, int64, error) {
+func (r *historyRepository) GetSessionsHistory(ctx context.Context, discipleID, tz string, from, to *time.Time, filter HistorySessionFilter, limit, offset int) ([]HistorySessionRow, int64, error) {
 	where := "s.disciple_id = ?"
 	args := []any{discipleID}
 
@@ -383,8 +388,20 @@ func (r *historyRepository) GetSessionsHistory(ctx context.Context, discipleID, 
 		where += " AND " + dateFloorTZ("s.performed_at", tz) + " <= ?"
 		args = append(args, to.Format("2006-01-02"))
 	}
+	if filter.Status != nil {
+		where += " AND s.status = ?"
+		args = append(args, *filter.Status)
+	}
+	if filter.ProgramID != nil {
+		where += " AND a.program_id = ?"
+		args = append(args, *filter.ProgramID)
+	}
 
-	countSQL := "SELECT COUNT(*) FROM session_logs s WHERE " + where
+	countSQL := `
+SELECT COUNT(*)
+FROM session_logs s
+JOIN assignments a ON a.id = s.assignment_id
+WHERE ` + where
 	var total int64
 	if err := r.db.WithContext(ctx).Raw(countSQL, args...).Scan(&total).Error; err != nil {
 		return nil, 0, err
@@ -469,8 +486,8 @@ LIMIT ? OFFSET ?`
 }
 
 // ========== /disciples/:id/sessions ==========
-func (r *historyRepository) ListDiscipleSessions(ctx context.Context, discipleID, tz string, from, to *time.Time, limit, offset int) ([]DiscipleSessionRow, int64, error) {
-	return r.GetSessionsHistory(ctx, discipleID, tz, from, to, limit, offset)
+func (r *historyRepository) ListDiscipleSessions(ctx context.Context, discipleID, tz string, from, to *time.Time, filter HistorySessionFilter, limit, offset int) ([]DiscipleSessionRow, int64, error) {
+	return r.GetSessionsHistory(ctx, discipleID, tz, from, to, filter, limit, offset)
 }
 
 // ========== /disciples/:id/days (plan vs done) ==========
