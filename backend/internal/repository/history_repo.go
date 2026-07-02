@@ -70,14 +70,20 @@ var ErrNoDay = errors.New("no_day")
 type (
 	// Para /history?group=session
 	HistorySessionRow struct {
-		SessionID    string     `json:"session_id"`
-		AssignmentID string     `json:"assignment_id"`
-		DayID        string     `json:"day_id"`
-		PerformedAt  time.Time  `json:"performed_at"`
-		Status       string     `json:"status"`
-		EndedAt      *time.Time `json:"ended_at,omitempty"`
-		Sets         int        `json:"sets"`
-		Volume       float64    `json:"volume"`
+		SessionID      string     `json:"session_id"`
+		AssignmentID   string     `json:"assignment_id"`
+		ProgramID      string     `json:"program_id,omitempty"`
+		ProgramTitle   string     `json:"program_title,omitempty"`
+		DayID          string     `json:"day_id"`
+		WeekIndex      int        `json:"week_index,omitempty"`
+		DayIndex       int        `json:"day_index,omitempty"`
+		DayTitle       *string    `json:"day_title,omitempty"`
+		PerformedAt    time.Time  `json:"performed_at"`
+		Status         string     `json:"status"`
+		EndedAt        *time.Time `json:"ended_at,omitempty"`
+		Sets           int        `json:"sets"`
+		ExercisesCount int        `json:"exercises_count"`
+		Volume         float64    `json:"volume"`
 	}
 
 	// Para /history?group=day (agregado por día)
@@ -388,16 +394,27 @@ func (r *historyRepository) GetSessionsHistory(ctx context.Context, discipleID, 
 SELECT
   s.id          AS session_id,
   s.assignment_id,
+  a.program_id,
+  prog.title    AS program_title,
   s.day_id,
+  pw.week_index,
+  pd.day_index,
+  pd.title      AS day_title,
   s.performed_at,
   s.status,
   s.ended_at,
   COALESCE(COUNT(sl.id),0)                         AS sets,
+  COALESCE(COUNT(DISTINCT pr.exercise_id),0)        AS exercises_count,
   COALESCE(SUM(COALESCE(sl.weight,0) * sl.reps),0) AS volume
 FROM session_logs s
+JOIN assignments a ON a.id = s.assignment_id
+JOIN programs prog ON prog.id = a.program_id
+JOIN program_days pd ON pd.id = s.day_id
+JOIN program_weeks pw ON pw.id = pd.week_id
 LEFT JOIN set_logs sl ON sl.session_id = s.id
+LEFT JOIN prescriptions pr ON pr.id = sl.prescription_id
 WHERE ` + where + `
-GROUP BY s.id
+GROUP BY s.id, a.program_id, prog.title, pw.week_index, pd.day_index, pd.title
 ORDER BY s.performed_at DESC, s.id DESC
 LIMIT ? OFFSET ?`
 	args2 := append(args, limit, offset)

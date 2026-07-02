@@ -1,5 +1,36 @@
 import api from '@/lib/axios'
 
+export type HistorySession = {
+  session_id: string
+  assignment_id: string
+  program_id?: string
+  program_title?: string
+  day_id: string
+  week_index?: number
+  day_index?: number
+  day_title?: string | null
+  performed_at: string
+  status: string
+  ended_at?: string | null
+  sets: number
+  exercises_count?: number
+  volume: number
+}
+
+export async function getHistorySessions(params: { days: number }) {
+  const { data } = await api.get<{ items: HistorySession[]; total: number }>('/api/history', {
+    params: {
+      group: 'session',
+      limit: 50,
+    },
+  })
+  const cutoff = Date.now() - params.days * 24 * 60 * 60 * 1000
+  return {
+    items: (data.items ?? []).filter((item) => new Date(item.performed_at).getTime() >= cutoff),
+    total: data.total ?? 0,
+  }
+}
+
 export async function getHistoryPivot(params: {
   days: number
   mode: 'by_exercise' | 'by_muscle'

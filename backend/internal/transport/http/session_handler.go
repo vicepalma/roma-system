@@ -117,7 +117,23 @@ func (h *SessionHandler) get(c *gin.Context) {
 		c.JSON(404, gin.H{"error": "not_found"})
 		return
 	}
-	c.JSON(200, gin.H{"session": sess, "sets": sets, "cardio": cardio})
+	var detailMeta struct {
+		ProgramID    string  `json:"program_id"`
+		ProgramTitle string  `json:"program_title"`
+		WeekIndex    int     `json:"week_index"`
+		DayIndex     int     `json:"day_index"`
+		DayTitle     *string `json:"day_title,omitempty"`
+	}
+	_ = db.Raw(`
+		SELECT a.program_id, p.title AS program_title, w.week_index, d.day_index, d.title AS day_title
+		FROM session_logs s
+		JOIN assignments a ON a.id = s.assignment_id
+		JOIN programs p ON p.id = a.program_id
+		JOIN program_days d ON d.id = s.day_id
+		JOIN program_weeks w ON w.id = d.week_id
+		WHERE s.id = ?
+	`, id).Scan(&detailMeta).Error
+	c.JSON(200, gin.H{"session": sess, "sets": sets, "cardio": cardio, "meta": detailMeta})
 }
 
 func (h *SessionHandler) addSet(c *gin.Context) {

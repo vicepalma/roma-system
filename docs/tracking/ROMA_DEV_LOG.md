@@ -112,6 +112,12 @@ Objetivo: cerrar sesion, bloquear mutaciones posteriores y mostrar resumen basic
 Resultado: `PATCH /api/sessions/:id` cierra con `status=closed`; sets/cardio/delete quedan bloqueados con `409`; frontend muestra resumen.
 Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
 
+### CHK-014 - Historial de sesiones cerradas
+Estado: Completado.
+Objetivo: listar sesiones realizadas con metadata y link a resumen.
+Resultado: `/api/history` y `/api/sessions/:id` incluyen programa/semana/dia; Historial lista sesiones con sets, ejercicios y volumen.
+Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
+
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
 - Ampliar E2E cuando aparezcan endpoints de editar sets/check-ins.

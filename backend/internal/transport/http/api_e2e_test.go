@@ -151,7 +151,8 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 		"reps":            9,
 	}, http.StatusConflict)
 	e2eRequest(t, r, http.MethodDelete, "/api/sessions/"+sessionID+"/sets/"+setID, disciple1Token, nil, http.StatusConflict)
-	e2eRequest(t, r, http.MethodGet, "/api/sessions/"+sessionID, disciple1Token, nil, http.StatusOK)
+	e2eAssertSessionDetailMeta(t, r, disciple1Token, sessionID, programID, "E2E Coach Program", 1, 1)
+	e2eAssertHistorySession(t, r, disciple1Token, sessionID, "E2E Coach Program", 1, 1, 1, 1, 800)
 
 	e2eSetAssignmentActive(t, db, assignmentID, false)
 	e2eRequest(t, r, http.MethodPost, "/api/sessions", disciple1Token, gin.H{
@@ -398,6 +399,51 @@ func e2eAssertAssignmentDays(t *testing.T, r http.Handler, token, assignmentID, 
 		}
 	}
 	t.Fatalf("assignment %s days did not include day %s; got %#v", assignmentID, dayID, out.Items)
+}
+
+func e2eAssertSessionDetailMeta(t *testing.T, r http.Handler, token, sessionID, programID, programTitle string, weekIndex, dayIndex int) {
+	t.Helper()
+	resp := e2eRequest(t, r, http.MethodGet, "/api/sessions/"+sessionID, token, nil, http.StatusOK)
+	var out struct {
+		Meta struct {
+			ProgramID    string `json:"program_id"`
+			ProgramTitle string `json:"program_title"`
+			WeekIndex    int    `json:"week_index"`
+			DayIndex     int    `json:"day_index"`
+		} `json:"meta"`
+	}
+	e2eDecode(t, resp, &out)
+	if out.Meta.ProgramID != programID || out.Meta.ProgramTitle != programTitle || out.Meta.WeekIndex != weekIndex || out.Meta.DayIndex != dayIndex {
+		t.Fatalf("session meta=%#v want program=%s title=%s week=%d day=%d", out.Meta, programID, programTitle, weekIndex, dayIndex)
+	}
+}
+
+func e2eAssertHistorySession(t *testing.T, r http.Handler, token, sessionID, programTitle string, weekIndex, dayIndex, exercisesCount, sets int, volume float64) {
+	t.Helper()
+	resp := e2eRequest(t, r, http.MethodGet, "/api/history?group=session", token, nil, http.StatusOK)
+	var out struct {
+		Items []struct {
+			SessionID      string  `json:"session_id"`
+			ProgramTitle   string  `json:"program_title"`
+			WeekIndex      int     `json:"week_index"`
+			DayIndex       int     `json:"day_index"`
+			ExercisesCount int     `json:"exercises_count"`
+			Sets           int     `json:"sets"`
+			Volume         float64 `json:"volume"`
+			Status         string  `json:"status"`
+		} `json:"items"`
+	}
+	e2eDecode(t, resp, &out)
+	for _, item := range out.Items {
+		if item.SessionID != sessionID {
+			continue
+		}
+		if item.ProgramTitle != programTitle || item.WeekIndex != weekIndex || item.DayIndex != dayIndex || item.ExercisesCount != exercisesCount || item.Sets != sets || item.Volume != volume || item.Status != "closed" {
+			t.Fatalf("history session=%#v", item)
+		}
+		return
+	}
+	t.Fatalf("history did not include session %s: %#v", sessionID, out.Items)
 }
 
 func e2eSetAssignmentActive(t *testing.T, db *gorm.DB, assignmentID string, active bool) {

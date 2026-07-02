@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useToast } from '@/components/toast/ToastProvider'
 import { getSession, addSet, deleteSet, patchSession, endSession } from '@/services/sessions'
-import { getProgram, listPrescriptions } from '@/services/programs'
+import { listPrescriptions } from '@/services/programs'
 import { AssignmentDay } from '@/types/assignments'
 import { listAssignmentDays, getMyActiveAssignment } from '@/services/assignments'
 import Modal from '@/components/ui/Modal'
@@ -34,6 +34,7 @@ export default function SessionView() {
   const sess = sessQ.data?.session ?? null
   const sets = sessQ.data?.sets ?? []
   const cardio = sessQ.data?.cardio ?? []
+  const meta = sessQ.data?.meta ?? null
   const isClosed = sess?.status === 'closed'
 
   const activeQ = useQuery({
@@ -42,13 +43,6 @@ export default function SessionView() {
     staleTime: 30_000,
   })
   const active = activeQ.data || null
-
-  const programQ = useQuery({
-    queryKey: ['programs', active?.program_id, 'session-summary'],
-    queryFn: () => getProgram(active!.program_id),
-    enabled: !!active?.program_id && !!sess?.assignment_id && active.id === sess.assignment_id,
-    staleTime: 30_000,
-  })
 
   const showMismatchBanner = Boolean(
     sess && active?.id && sess.assignment_id !== active.id
@@ -209,11 +203,15 @@ export default function SessionView() {
             </div>
             <div>
               <div className="text-xs text-gray-500">Rutina</div>
-              <div>{programQ.data?.title?.trim() || 'Rutina'}</div>
+              <div>{meta?.program_title?.trim() || 'Rutina'}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500">Día</div>
-              <div>{selectedDay ? `Semana ${selectedDay.week_index} · Día ${selectedDay.day_index}` : 'Día de entrenamiento'}</div>
+              <div>
+                {meta?.week_index && meta?.day_index
+                  ? `Semana ${meta.week_index} · Día ${meta.day_index}`
+                  : selectedDay ? `Semana ${selectedDay.week_index} · Día ${selectedDay.day_index}` : 'Día de entrenamiento'}
+              </div>
             </div>
             <div>
               <div className="text-xs text-gray-500">Ejercicios con sets</div>
