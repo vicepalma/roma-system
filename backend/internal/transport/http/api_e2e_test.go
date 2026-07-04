@@ -73,6 +73,21 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 	e2eAssertCheckinInList(t, r, disciple1Token, "/api/checkins?from=2026-07-01&to=2026-07-31&limit=1", checkinID)
 	e2eAssertCheckinNotInList(t, r, disciple1Token, "/api/checkins?from=2026-07-01&to=2026-07-31", oldCheckinID)
 	e2eAssertCheckinDetail(t, r, disciple1Token, checkinID, disciple1ID, 76.5, "E2E check-in")
+	e2eRequest(t, r, http.MethodPatch, "/api/checkins/"+checkinID, disciple1Token, gin.H{
+		"checked_at": "2026-07-02",
+		"weight_kg":  77.1,
+		"notes":      "Updated E2E check-in",
+	}, http.StatusOK)
+	e2eAssertCheckinDetail(t, r, disciple1Token, checkinID, disciple1ID, 77.1, "Updated E2E check-in")
+	e2eRequest(t, r, http.MethodPatch, "/api/checkins/"+checkinID, disciple2Token, gin.H{
+		"checked_at": "2026-07-03",
+		"notes":      "Forbidden mutation",
+	}, http.StatusForbidden)
+	e2eRequest(t, r, http.MethodPatch, "/api/checkins/"+checkinID, coach1Token, gin.H{
+		"checked_at": "2026-07-03",
+	}, http.StatusForbidden)
+	e2eRequest(t, r, http.MethodPatch, "/api/checkins/"+checkinID, disciple1Token, gin.H{"checked_at": "bad-date"}, http.StatusBadRequest)
+	e2eRequest(t, r, http.MethodPatch, "/api/checkins/"+checkinID, disciple1Token, gin.H{"checked_at": "2026-07-03", "weight_kg": -1}, http.StatusBadRequest)
 	e2eRequest(t, r, http.MethodGet, "/api/checkins/"+checkinID, disciple2Token, nil, http.StatusForbidden)
 	e2eAssertCheckinInList(t, r, coach1Token, "/api/coach/disciples/"+disciple1ID+"/checkins", checkinID)
 	e2eAssertCheckinInList(t, r, coach1Token, "/api/coach/disciples/"+disciple1ID+"/checkins?from=2026-07-01&to=2026-07-31&limit=1", checkinID)

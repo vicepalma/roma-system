@@ -27,6 +27,7 @@ func (h *CheckinHandler) Register(r *gin.RouterGroup) {
 	r.POST("/checkins", security.RequireRole(h.db, "disciple"), h.create)
 	r.GET("/checkins", security.RequireRole(h.db, "disciple"), h.listMine)
 	r.GET("/checkins/:id", h.get)
+	r.PATCH("/checkins/:id", security.RequireRole(h.db, "disciple"), h.updateOwn)
 	r.GET("/coach/disciples/:id/checkins", security.RequireRole(h.db, "coach"), h.listForCoach)
 }
 
@@ -63,6 +64,42 @@ func (h *CheckinHandler) create(c *gin.Context) {
 
 func (h *CheckinHandler) listMine(c *gin.Context) {
 	h.listByDisciple(c, security.UserID(c))
+}
+
+func (h *CheckinHandler) updateOwn(c *gin.Context) {
+	type req struct {
+		CheckedAt string   `json:"checked_at"`
+		WeightKG  *float64 `json:"weight_kg"`
+		Notes     *string  `json:"notes"`
+	}
+	var body req
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request", "detail": err.Error()})
+		return
+	}
+	checkedAt, ok := parseCheckinDate(c, body.CheckedAt)
+	if !ok {
+		return
+	}
+	if body.WeightKG != nil && *body.WeightKG <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_weight"})
+		return
+	}
+	checkin, err := h.svc.UpdateOwn(c.Request.Context(), c.Param("id"), security.UserID(c), checkedAt, body.WeightKG, cleanOptionalText(body.Notes))
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidCheckin):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request"})
+		case errors.Is(err, service.ErrForbiddenCheckin):
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "not_found"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, checkin)
 }
 
 func (h *CheckinHandler) listForCoach(c *gin.Context) {

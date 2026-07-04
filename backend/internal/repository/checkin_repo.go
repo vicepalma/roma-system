@@ -17,6 +17,7 @@ type CheckinRepository interface {
 	Create(ctx context.Context, checkin *domain.Checkin) error
 	ListByDisciple(ctx context.Context, discipleID string, filter CheckinFilter, limit, offset int) ([]domain.Checkin, int64, error)
 	FindByID(ctx context.Context, id string) (*domain.Checkin, error)
+	Update(ctx context.Context, checkin *domain.Checkin) error
 }
 
 type checkinRepository struct{ db *gorm.DB }
@@ -56,4 +57,12 @@ func (r *checkinRepository) FindByID(ctx context.Context, id string) (*domain.Ch
 		return nil, err
 	}
 	return &out, nil
+}
+
+func (r *checkinRepository) Update(ctx context.Context, checkin *domain.Checkin) error {
+	return r.db.WithContext(ctx).Model(checkin).Updates(map[string]any{
+		"checked_at": checkin.CheckedAt,
+		"weight_kg":  checkin.WeightKG,
+		"notes":      checkin.Notes,
+	}).Error
 }

@@ -10,11 +10,13 @@ import (
 )
 
 var ErrInvalidCheckin = errors.New("invalid_checkin")
+var ErrForbiddenCheckin = errors.New("forbidden_checkin")
 
 type CheckinService interface {
 	Create(ctx context.Context, discipleID string, checkedAt time.Time, weightKG *float64, notes *string) (*domain.Checkin, error)
 	List(ctx context.Context, discipleID string, filter repository.CheckinFilter, limit, offset int) ([]domain.Checkin, int64, error)
 	Get(ctx context.Context, id string) (*domain.Checkin, error)
+	UpdateOwn(ctx context.Context, id, discipleID string, checkedAt time.Time, weightKG *float64, notes *string) (*domain.Checkin, error)
 }
 
 type checkinService struct{ repo repository.CheckinRepository }
@@ -48,4 +50,27 @@ func (s *checkinService) List(ctx context.Context, discipleID string, filter rep
 
 func (s *checkinService) Get(ctx context.Context, id string) (*domain.Checkin, error) {
 	return s.repo.FindByID(ctx, id)
+}
+
+func (s *checkinService) UpdateOwn(ctx context.Context, id, discipleID string, checkedAt time.Time, weightKG *float64, notes *string) (*domain.Checkin, error) {
+	if id == "" || discipleID == "" || checkedAt.IsZero() {
+		return nil, ErrInvalidCheckin
+	}
+	if weightKG != nil && *weightKG <= 0 {
+		return nil, ErrInvalidCheckin
+	}
+	checkin, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if checkin.DiscipleID != discipleID {
+		return nil, ErrForbiddenCheckin
+	}
+	checkin.CheckedAt = checkedAt
+	checkin.WeightKG = weightKG
+	checkin.Notes = notes
+	if err := s.repo.Update(ctx, checkin); err != nil {
+		return nil, err
+	}
+	return checkin, nil
 }

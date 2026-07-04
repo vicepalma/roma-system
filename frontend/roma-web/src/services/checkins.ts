@@ -63,3 +63,16 @@ export async function createCheckin(payload: {
   })
   return data
 }
+
+export async function updateCheckin(id: string, payload: {
+  checked_at: string
+  weight_kg?: number | null
+  notes?: string | null
+}) {
+  const { data } = await api.patch<Checkin>(`/api/checkins/${id}`, {
+    checked_at: payload.checked_at,
+    weight_kg: payload.weight_kg ?? null,
+    notes: payload.notes?.trim() || null,
+  })
+  return data
+}
