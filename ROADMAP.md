@@ -51,12 +51,12 @@ El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con 
 
 ## Proximo Work Item Recomendado
 
-- ROMA-0XX - Ajustes menores detectados durante demo, solo con WI especifico.
+- ROMA-028 - Demo local: prueba manual y lista de ajustes menores.
 
 ## Proximos despues del MVP inicial
 
+- ROMA-029 - Ajustes menores detectados durante demo, solo con WI especifico.
 - ROMA-0XX - Archivar o eliminar check-ins propios, si se decide.
-- ROMA-0XX - Ajustes menores detectados durante demo, solo con WI especifico.
 
 ## Fuera De Alcance Actual
 
