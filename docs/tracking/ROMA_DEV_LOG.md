@@ -167,6 +167,9 @@ Resultado: endpoints de check-ins propios y coach aceptan `from`, `to`, `limit`,
 Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
 Proximo sugerido: ROMA-022.
 
+### Nota de alcance ROMA-022
+ROMA-022 fue acotado a edicion de check-ins propios. Borrado/archivado queda fuera de alcance por ahora y requerira decision/WI aparte si se prioriza.
+
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
 - Ampliar E2E cuando aparezcan endpoints de editar sets/check-ins.

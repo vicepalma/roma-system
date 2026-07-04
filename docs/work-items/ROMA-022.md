@@ -1,23 +1,29 @@
-# ROMA-022 - Edicion/borrado de check-ins
+# ROMA-022 - Editar check-ins propios
 
 Estado: Planned
 Tipo: feature
 
 ## Objetivo
 
-Permitir que el disciple edite o borre sus propios check-ins, si se decide.
+Permitir que el disciple edite sus propios check-ins para corregir errores.
 
 ## Alcance
 
-- Definir reglas de edicion/borrado para check-ins propios.
-- Implementar endpoints y UI solo si se confirma el alcance.
+- Permitir edicion solo para check-ins propios del disciple autenticado.
+- Campos editables: `checked_at`, `weight_kg`, `notes`.
 - Mantener bloqueo para coach, otros disciples y usuarios no vinculados.
+- Validar fecha, peso opcional y notas con las mismas reglas de creacion.
 
 ## Fuera de alcance
 
+- Borrar check-ins.
+- Soft delete.
+- Hard delete.
+- Edicion por coach.
 - Check-ins creados por coach.
+- Creacion de check-ins por coach.
 - Adjuntos, fotos o mediciones avanzadas.
-- Auditoria compleja de cambios.
+- Auditoria avanzada.
 
 ## Validaciones esperadas
 
