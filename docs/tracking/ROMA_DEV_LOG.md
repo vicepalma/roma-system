@@ -3,8 +3,8 @@
 ## Estado actual
 - Fase actual: MVP seguimiento basico.
 - Objetivo actual: mejorar seguimiento coach/disciple sin ampliar alcance social ni reporting avanzado.
-- Ultimo checkpoint completado: ROMA-021 / CHK-021 - Filtros/paginacion de check-ins.
-- Proximo checkpoint sugerido: ROMA-022 - edicion/borrado de check-ins, si se decide.
+- Ultimo checkpoint completado: ROMA-024 / CHK-024 - Demo FST-7 seed opcional.
+- Proximo checkpoint sugerido: ROMA-025 - Hardening final MVP.
 
 ## Decisiones activas
 - [2026-06-24] Decision: no partir desde cero; rescatar repo con estabilizacion previa.
@@ -169,6 +169,27 @@ Proximo sugerido: ROMA-022.
 
 ### Nota de alcance ROMA-022
 ROMA-022 fue acotado a edicion de check-ins propios. Borrado/archivado queda fuera de alcance por ahora y requerira decision/WI aparte si se prioriza.
+
+### ROMA-022 / CHK-022 - Editar check-ins propios
+Estado: Done
+Objetivo: permitir que el disciple corrija sus propios check-ins sin habilitar borrado.
+Resultado: `PATCH /api/checkins/:id` edita `checked_at`, `weight_kg` y `notes` solo para el disciple dueño; UI de Check-ins permite editar inline; coach/otros disciples quedan bloqueados.
+Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
+Proximo sugerido: ROMA-023.
+
+### ROMA-023 / CHK-023 - Biblioteca de rutinas / plantillas Roma, diseno primero
+Estado: Done
+Objetivo: definir reglas de producto y flujo antes de implementar plantillas.
+Resultado: creado `docs/product/ROMA_TEMPLATE_LIBRARY_DESIGN.md` con tipos de plantillas, ownership, visibilidad, relacion con programas existentes y fuera de alcance.
+Validado: `git status --short`.
+Proximo sugerido: ROMA-024.
+
+### ROMA-024 / CHK-024 - Demo FST-7 seed opcional
+Estado: Done
+Objetivo: cargar una pauta demo FST-7 como seed opcional para probar Roma con datos reales sin mezclar datos demo en migraciones productivas.
+Resultado: `0008_demo_fst7_seed` fue retirado de migraciones oficiales; el seed quedo en `database/seed/demo_fst7.up.sql` y `database/seed/demo_fst7.down.sql`, con cuentas demo `@roma.demo`, vinculo coach-disciple, programa privado `[DEMO] FST-7 Hipertrofia - 5 dias`, 5 dias, 16 prescripciones, 5 cierres FST-7 y assignment activo para ejecucion local.
+Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; migraciones oficiales `0001` a `0007` aplicadas en Postgres temporal limpio sin seed demo; `database/seed/demo_fst7.up.sql` aplicado manualmente; smoke SQL creo una sesion y un set sobre el assignment demo.
+Proximo sugerido: ROMA-025.
 
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.

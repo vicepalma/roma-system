@@ -43,6 +43,24 @@ cd frontend/roma-web
 npm run dev
 ```
 
+## Seeds Demo Opcionales
+
+Las migraciones oficiales dejan el esquema y el seed minimo operativo. Los datos demo no se aplican automaticamente.
+
+Para cargar la demo FST-7 sobre una DB local ya migrada:
+
+```bash
+psql 'postgres://roma:roma@localhost:5432/roma?sslmode=disable' -v ON_ERROR_STOP=1 -f database/seed/demo_fst7.up.sql
+```
+
+Esto crea las cuentas `fst7.coach@roma.demo` y `fst7.disciple@roma.demo` con password `secret123`, mas el programa `[DEMO] FST-7 Hipertrofia - 5 dias` asignado al disciple demo.
+
+Para retirar esos datos demo:
+
+```bash
+psql 'postgres://roma:roma@localhost:5432/roma?sslmode=disable' -v ON_ERROR_STOP=1 -f database/seed/demo_fst7.down.sql
+```
+
 ## Reset Local
 
 Si necesitas resetear la DB local de compose:

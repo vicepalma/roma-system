@@ -33,6 +33,9 @@ El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con 
 - ROMA-019 - Documentacion operativa y flujo por Work Items.
 - ROMA-020 - Pulir historial coach con contexto del alumno.
 - ROMA-021 - Filtros/paginacion de check-ins.
+- ROMA-022 - Editar check-ins propios.
+- ROMA-023 - Biblioteca de rutinas / plantillas Roma, diseno primero.
+- ROMA-024 - Demo FST-7 seed opcional.
 
 ## Modo De Trabajo Actual
 
@@ -45,13 +48,10 @@ El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con 
 
 ## Proximo Work Item Recomendado
 
-- ROMA-022 - Editar check-ins propios.
+- ROMA-025 - Hardening final MVP.
 
 ## Proximos Work Items Sugeridos
 
-- ROMA-022 - Editar check-ins propios.
-- ROMA-023 - Biblioteca de rutinas / plantillas Roma, diseno primero.
-- ROMA-024 - Demo FST-7 seed.
 - ROMA-025 - Hardening final MVP.
 - ROMA-026 - Pulido UI general MVP.
 - ROMA-027 - Preparacion demo local.
