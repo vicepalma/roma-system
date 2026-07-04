@@ -2,9 +2,9 @@
 
 ## Estado actual
 - Fase actual: post MVP inicial / preparacion demo local.
-- Objetivo actual: dejar una demo local facil de levantar y probar sin crear features nuevas.
-- Ultimo checkpoint completado: ROMA-026 / CHK-026 - Pulido UI general MVP.
-- Proximo checkpoint sugerido: ROMA-027 - Preparacion demo local.
+- Objetivo actual: mantener el MVP listo para demo local y decidir proximos ajustes por WI.
+- Ultimo checkpoint completado: ROMA-027 / CHK-027 - Preparacion demo local.
+- Proximo checkpoint sugerido: ROMA-0XX - Ajustes menores detectados durante demo, solo con WI especifico.
 
 ## Decisiones activas
 - [2026-06-24] Decision: no partir desde cero; rescatar repo con estabilizacion previa.
@@ -211,6 +211,13 @@ Objetivo: ajustar reglas de trabajo con cambios sin commit, cerrar el roadmap in
 Resultado: `AGENTS.md` aclara que cambios sin commit no bloquean automaticamente; `ROADMAP.md` agrega proximos despues del MVP inicial; `docs/work-items/ROMA-027.md` creado para documentar demo local sin tocar backend/frontend.
 Validado: `git status --short`.
 Proximo sugerido: ROMA-027.
+
+### ROMA-027 / CHK-027 - Preparacion demo local
+Estado: Done
+Objetivo: dejar una demo local facil de levantar y probar.
+Resultado: se creo `docs/engineering/LOCAL_DEMO.md` con pasos para levantar backend/frontend, aplicar o retirar seed FST-7 opcional, usuarios demo, flujo sugerido para coach/disciple y checklist manual; se enlazo desde README y setup. No se tocaron backend, frontend ni migraciones.
+Validado: `git status --short`; `git diff --check`.
+Proximo sugerido: ROMA-0XX - Ajustes menores detectados durante demo, solo con WI especifico.
 
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.

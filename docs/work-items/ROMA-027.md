@@ -1,6 +1,6 @@
 # ROMA-027 - Preparacion demo local
 
-Estado: Planned
+Estado: Done
 Tipo: docs
 Fecha: 2026-07-04
 Autor: Codex
@@ -33,6 +33,7 @@ El MVP inicial llego al cierre de ROMA-026. Antes de seguir con nuevas funcional
 
 - `README.md`
 - `docs/engineering/DEVELOPMENT_SETUP.md`
+- `docs/engineering/LOCAL_DEMO.md`
 - `docs/tracking/ROMA_DEV_LOG.md`
 - `docs/work-items/ROMA-027.md`
 
@@ -61,3 +62,18 @@ No es obligatorio correr tests si solo se toca documentacion.
 - Actualizar este WI con resultado y validaciones.
 - Actualizar `docs/tracking/ROMA_DEV_LOG.md`.
 - No hacer commit automaticamente.
+
+## Resultado
+
+- Se creo `docs/engineering/LOCAL_DEMO.md` con pasos para levantar backend/frontend.
+- Se documento como aplicar y retirar el seed FST-7 opcional.
+- Se documentaron usuarios demo y password comun.
+- Se agrego flujo demo sugerido para coach y disciple.
+- Se agrego checklist manual de demo.
+- Se enlazo la guia desde `README.md` y `docs/engineering/DEVELOPMENT_SETUP.md`.
+- No se tocaron backend, frontend ni migraciones.
+
+## Validado
+
+- `git status --short`
+- `git diff --check`

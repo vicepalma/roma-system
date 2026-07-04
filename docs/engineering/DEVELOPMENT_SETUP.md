@@ -47,6 +47,8 @@ npm run dev
 
 Las migraciones oficiales dejan el esquema y el seed minimo operativo. Los datos demo no se aplican automaticamente.
 
+Para una ruta completa de demo local, ver `docs/engineering/LOCAL_DEMO.md`.
+
 Para cargar la demo FST-7 sobre una DB local ya migrada:
 
 ```bash

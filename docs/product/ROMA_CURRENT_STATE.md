@@ -56,4 +56,4 @@
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
 - Consolidar `invitations`/`invite_codes` si se prioriza flujo de invitaciones.
 - Biblioteca de rutinas/plantillas funcional si se prioriza.
-- Preparacion demo local y pulido UI general MVP.
+- Ajustes menores detectados durante demo, solo con WI especifico.

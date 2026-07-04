@@ -38,6 +38,7 @@ El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con 
 - ROMA-024 - Demo FST-7 seed opcional.
 - ROMA-025 - Hardening final MVP.
 - ROMA-026 - Pulido UI general MVP.
+- ROMA-027 - Preparacion demo local.
 
 ## Modo De Trabajo Actual
 
@@ -50,11 +51,10 @@ El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con 
 
 ## Proximo Work Item Recomendado
 
-- ROMA-027 - Preparacion demo local.
+- ROMA-0XX - Ajustes menores detectados durante demo, solo con WI especifico.
 
 ## Proximos despues del MVP inicial
 
-- ROMA-027 - Preparacion demo local.
 - ROMA-0XX - Archivar o eliminar check-ins propios, si se decide.
 - ROMA-0XX - Ajustes menores detectados durante demo, solo con WI especifico.
 
