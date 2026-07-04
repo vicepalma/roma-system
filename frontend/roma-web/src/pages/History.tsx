@@ -1,9 +1,12 @@
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getHistoryPivot, getHistorySessions } from '@/services/history'
 import { listMyPrograms } from '@/services/programs'
+import { getCoachDisciples } from '@/services/coach'
 import OverviewVolumeChart from '@/components/charts/OverviewVolumeChart'
+import useAuth from '@/store/auth'
+import type { CoachDisciple } from '@/types/coach'
 
 function dateISOOffset(daysAgo: number) {
   const d = new Date()
@@ -17,6 +20,8 @@ function todayISO() {
 
 export default function History() {
   const [searchParams] = useSearchParams()
+  const location = useLocation() as { state?: { discipleName?: string; discipleEmail?: string } }
+  const user = useAuth((s) => s.user)
   const discipleId = searchParams.get('disciple_id') || ''
   const [days, setDays] = useState(14)
   const [mode, setMode] = useState<'by_exercise'|'by_muscle'>('by_exercise')
@@ -40,13 +45,63 @@ export default function History() {
     queryFn: listMyPrograms,
     staleTime: 30_000,
   })
+  const disciplesQ = useQuery({
+    queryKey: ['coach', 'disciples'],
+    queryFn: getCoachDisciples,
+    enabled: user?.role === 'coach' && !!discipleId && !location.state?.discipleName,
+    staleTime: 5 * 60 * 1000,
+  })
+  const selectedDisciple = ((disciplesQ.data ?? []) as CoachDisciple[]).find((d) => String(d.id) === String(discipleId))
+  const discipleName = location.state?.discipleName || selectedDisciple?.name || ''
+  const discipleEmail = location.state?.discipleEmail || selectedDisciple?.email || ''
+  const selectedProgram = (programsQ.data ?? []).find((program) => String(program.id) === String(programId))
+  const activeFilters = [
+    from ? `Desde ${from}` : 'Sin fecha inicial',
+    to ? `Hasta ${to}` : 'Sin fecha final',
+    status ? (status === 'closed' ? 'Finalizadas' : 'Abiertas') : 'Todos los estados',
+    programId ? `Rutina: ${selectedProgram?.title?.trim() || 'seleccionada'}` : 'Todas las rutinas',
+  ]
 
   return (
     <div className="mx-auto max-w-6xl p-6 space-y-4">
-      <h2 className="text-xl font-semibold">Historial</h2>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">Historial</h2>
+          <div className="mt-1 text-sm text-gray-600 dark:text-neutral-300">
+            {discipleId ? 'Vista coach del historial de un discípulo.' : 'Historial propio de entrenamiento.'}
+          </div>
+        </div>
+        {discipleId && (
+          <Link
+            to={`/disciples/${discipleId}`}
+            state={discipleName ? { name: discipleName, email: discipleEmail } : undefined}
+            className="text-sm rounded border px-3 py-2 bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-blue-600"
+          >
+            Volver al discípulo
+          </Link>
+        )}
+      </div>
       {discipleId && (
-        <div className="rounded border bg-white p-3 text-sm dark:bg-neutral-900 dark:border-neutral-800">
-          Historial del discípulo seleccionado.
+        <div className="rounded border bg-white p-4 dark:bg-neutral-900 dark:border-neutral-800">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-neutral-400">Discípulo seleccionado</div>
+              <div className="mt-1 text-lg font-semibold">
+                {disciplesQ.isLoading ? 'Cargando alumno...' : discipleName || `ID ${discipleId}`}
+              </div>
+              <div className="mt-1 text-sm text-gray-600 dark:text-neutral-300">
+                {discipleEmail || 'Email no disponible'}
+              </div>
+            </div>
+            <div className="text-xs text-gray-500 dark:text-neutral-400">
+              ID: {discipleId}
+            </div>
+          </div>
+          {disciplesQ.isError && (
+            <div className="mt-3 text-sm text-red-600">
+              No se pudo cargar el nombre del discípulo, pero el historial se mantiene filtrado por ID.
+            </div>
+          )}
         </div>
       )}
       <div className="flex flex-wrap items-center gap-3">
@@ -67,7 +122,12 @@ export default function History() {
       </div>
 
       <div className="rounded border bg-white p-4 dark:bg-neutral-900 dark:border-neutral-800">
-        <div className="mb-3 font-semibold">Filtros de sesiones</div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="font-semibold">Filtros de sesiones</div>
+          <div className="text-sm text-gray-600 dark:text-neutral-300">
+            {sessionsQ.data?.total ?? 0} resultado{sessionsQ.data?.total === 1 ? '' : 's'}
+          </div>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className="text-sm">
             <span className="mb-1 block text-gray-600 dark:text-neutral-300">Desde</span>
@@ -114,6 +174,13 @@ export default function History() {
               ))}
             </select>
           </label>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-600 dark:text-neutral-300">
+          {activeFilters.map((filter) => (
+            <span key={filter} className="rounded border px-2 py-1 dark:border-neutral-800">
+              {filter}
+            </span>
+          ))}
         </div>
       </div>
 

@@ -13,7 +13,7 @@ var ErrInvalidCheckin = errors.New("invalid_checkin")
 
 type CheckinService interface {
 	Create(ctx context.Context, discipleID string, checkedAt time.Time, weightKG *float64, notes *string) (*domain.Checkin, error)
-	List(ctx context.Context, discipleID string, limit, offset int) ([]domain.Checkin, int64, error)
+	List(ctx context.Context, discipleID string, filter repository.CheckinFilter, limit, offset int) ([]domain.Checkin, int64, error)
 	Get(ctx context.Context, id string) (*domain.Checkin, error)
 }
 
@@ -42,8 +42,8 @@ func (s *checkinService) Create(ctx context.Context, discipleID string, checkedA
 	return checkin, nil
 }
 
-func (s *checkinService) List(ctx context.Context, discipleID string, limit, offset int) ([]domain.Checkin, int64, error) {
-	return s.repo.ListByDisciple(ctx, discipleID, limit, offset)
+func (s *checkinService) List(ctx context.Context, discipleID string, filter repository.CheckinFilter, limit, offset int) ([]domain.Checkin, int64, error) {
+	return s.repo.ListByDisciple(ctx, discipleID, filter, limit, offset)
 }
 
 func (s *checkinService) Get(ctx context.Context, id string) (*domain.Checkin, error) {

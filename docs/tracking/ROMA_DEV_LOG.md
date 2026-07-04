@@ -1,10 +1,10 @@
 # ROMA Dev Log
 
 ## Estado actual
-- Fase actual: Fase 1 self-training endurecido.
-- Objetivo actual: una sola rutina propia activa por disciple sin afectar assignments de coach.
-- Ultimo checkpoint completado: CHK-008 - Endurecer activacion de self-training.
-- Proximo checkpoint: CHK-009 - cerrar gaps de ejecucion y UX de sesiones.
+- Fase actual: MVP seguimiento basico.
+- Objetivo actual: mejorar seguimiento coach/disciple sin ampliar alcance social ni reporting avanzado.
+- Ultimo checkpoint completado: ROMA-021 / CHK-021 - Filtros/paginacion de check-ins.
+- Proximo checkpoint sugerido: ROMA-022 - edicion/borrado de check-ins, si se decide.
 
 ## Decisiones activas
 - [2026-06-24] Decision: no partir desde cero; rescatar repo con estabilizacion previa.
@@ -152,6 +152,20 @@ Objetivo: crear una forma segura y simple de desarrollo orientado a agentes.
 Resultado: `ROADMAP.md` creado; `AGENTS.md` actualizado para operar por Work Items; creada carpeta `docs/work-items/` con README, template y ROMA-019; creados stubs minimos ROMA-020 a ROMA-025.
 Validado: `git status --short`.
 Proximo sugerido: ROMA-020.
+
+### ROMA-020 / CHK-020 - Pulir historial coach con contexto del alumno
+Estado: Done
+Objetivo: mostrar claramente el disciple y los filtros activos cuando el coach revisa historial.
+Resultado: `/history?disciple_id=...` muestra nombre, email, ID del disciple, enlace de vuelta y resumen visible de filtros/resultados; los accesos desde detalle de disciple pasan contexto de navegacion.
+Validado: `cd frontend/roma-web && npm run build`.
+Proximo sugerido: ROMA-021.
+
+### ROMA-021 / CHK-021 - Filtros/paginacion de check-ins
+Estado: Done
+Objetivo: agregar filtros simples por fecha y paginacion basica a check-ins.
+Resultado: endpoints de check-ins propios y coach aceptan `from`, `to`, `limit`, `offset`; UI disciple permite filtrar por fecha, seleccionar pagina y navegar resultados; E2E cubre filtros con ownership.
+Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL=postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
+Proximo sugerido: ROMA-022.
 
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.

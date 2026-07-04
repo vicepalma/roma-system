@@ -9,21 +9,45 @@ export type Checkin = {
   notes?: string | null
 }
 
-export async function listCheckins() {
-  const { data } = await api.get<{ items?: Checkin[]; total?: number }>('/api/checkins')
-  return {
-    items: data.items ?? [],
-    total: data.total ?? 0,
-  }
+export type CheckinListParams = {
+  from?: string
+  to?: string
+  limit?: number
+  offset?: number
 }
 
-export async function listCoachDiscipleCheckins(discipleId: string, limit = 5) {
-  const { data } = await api.get<{ items?: Checkin[]; total?: number }>(`/api/coach/disciples/${discipleId}/checkins`, {
-    params: { limit },
+export async function listCheckins(params: CheckinListParams = {}) {
+  const { data } = await api.get<{ items?: Checkin[]; total?: number; limit?: number; offset?: number }>('/api/checkins', {
+    params: {
+      from: params.from || undefined,
+      to: params.to || undefined,
+      limit: params.limit,
+      offset: params.offset,
+    },
   })
   return {
     items: data.items ?? [],
     total: data.total ?? 0,
+    limit: data.limit ?? params.limit ?? 50,
+    offset: data.offset ?? params.offset ?? 0,
+  }
+}
+
+export async function listCoachDiscipleCheckins(discipleId: string, params: number | CheckinListParams = 5) {
+  const queryParams = typeof params === 'number' ? { limit: params } : params
+  const { data } = await api.get<{ items?: Checkin[]; total?: number; limit?: number; offset?: number }>(`/api/coach/disciples/${discipleId}/checkins`, {
+    params: {
+      from: queryParams.from || undefined,
+      to: queryParams.to || undefined,
+      limit: queryParams.limit,
+      offset: queryParams.offset,
+    },
+  })
+  return {
+    items: data.items ?? [],
+    total: data.total ?? 0,
+    limit: data.limit ?? queryParams.limit ?? 50,
+    offset: data.offset ?? queryParams.offset ?? 0,
   }
 }
 

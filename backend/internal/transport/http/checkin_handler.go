@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/vicepalma/roma-system/backend/internal/repository"
 	"github.com/vicepalma/roma-system/backend/internal/security"
 	"github.com/vicepalma/roma-system/backend/internal/service"
 	"gorm.io/gorm"
@@ -79,8 +80,12 @@ func (h *CheckinHandler) listForCoach(c *gin.Context) {
 }
 
 func (h *CheckinHandler) listByDisciple(c *gin.Context, discipleID string) {
+	filter, ok := parseCheckinFilter(c)
+	if !ok {
+		return
+	}
 	limit, offset := parseCheckinPag(c.DefaultQuery("limit", "50")), parseCheckinPag(c.DefaultQuery("offset", "0"))
-	items, total, err := h.svc.List(c.Request.Context(), discipleID, limit, offset)
+	items, total, err := h.svc.List(c.Request.Context(), discipleID, filter, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
 		return
@@ -118,6 +123,34 @@ func parseCheckinDate(c *gin.Context, raw string) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	return parsed, true
+}
+
+func parseCheckinFilter(c *gin.Context) (repository.CheckinFilter, bool) {
+	var filter repository.CheckinFilter
+	from, ok := parseCheckinDateQuery(c, "from")
+	if !ok {
+		return filter, false
+	}
+	to, ok := parseCheckinDateQuery(c, "to")
+	if !ok {
+		return filter, false
+	}
+	filter.From = from
+	filter.To = to
+	return filter, true
+}
+
+func parseCheckinDateQuery(c *gin.Context, name string) (*time.Time, bool) {
+	raw := strings.TrimSpace(c.Query(name))
+	if raw == "" {
+		return nil, true
+	}
+	parsed, err := time.Parse("2006-01-02", raw)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_" + name})
+		return nil, false
+	}
+	return &parsed, true
 }
 
 func cleanOptionalText(value *string) *string {

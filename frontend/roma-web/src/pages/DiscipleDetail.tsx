@@ -389,6 +389,7 @@ export default function DiscipleDetail() {
           <div className="font-semibold">Últimos entrenamientos</div>
           <NavLink
             to={`/history?disciple_id=${id}`}
+            state={{ discipleName: displayName, discipleEmail: displayEmail }}
             className="text-xs rounded border px-2 py-1 bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-blue-600"
           >
             Ver historial completo
@@ -466,6 +467,7 @@ export default function DiscipleDetail() {
         <div className="flex flex-wrap gap-2">
           <NavLink
             to={`/history?disciple_id=${id}`}
+            state={{ discipleName: displayName, discipleEmail: displayEmail }}
             className="text-sm rounded border px-3 py-2 bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-blue-600"
           >
             Ver historial completo

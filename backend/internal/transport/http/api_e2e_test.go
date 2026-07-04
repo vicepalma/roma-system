@@ -65,16 +65,24 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 		"weight_kg":  76.5,
 		"notes":      "E2E check-in",
 	}, http.StatusCreated)
+	oldCheckinID := e2ePostID(t, r, http.MethodPost, "/api/checkins", disciple1Token, gin.H{
+		"checked_at": "2026-06-01",
+		"notes":      "Older E2E check-in",
+	}, http.StatusCreated)
 	e2eAssertCheckinInList(t, r, disciple1Token, "/api/checkins", checkinID)
+	e2eAssertCheckinInList(t, r, disciple1Token, "/api/checkins?from=2026-07-01&to=2026-07-31&limit=1", checkinID)
+	e2eAssertCheckinNotInList(t, r, disciple1Token, "/api/checkins?from=2026-07-01&to=2026-07-31", oldCheckinID)
 	e2eAssertCheckinDetail(t, r, disciple1Token, checkinID, disciple1ID, 76.5, "E2E check-in")
 	e2eRequest(t, r, http.MethodGet, "/api/checkins/"+checkinID, disciple2Token, nil, http.StatusForbidden)
 	e2eAssertCheckinInList(t, r, coach1Token, "/api/coach/disciples/"+disciple1ID+"/checkins", checkinID)
+	e2eAssertCheckinInList(t, r, coach1Token, "/api/coach/disciples/"+disciple1ID+"/checkins?from=2026-07-01&to=2026-07-31&limit=1", checkinID)
 	e2eRequest(t, r, http.MethodGet, "/api/checkins/"+checkinID, coach1Token, nil, http.StatusOK)
 	e2eRequest(t, r, http.MethodGet, "/api/coach/disciples/"+disciple1ID+"/checkins", coach2Token, nil, http.StatusForbidden)
 	e2eRequest(t, r, http.MethodGet, "/api/checkins/"+checkinID, coach2Token, nil, http.StatusForbidden)
 	e2eRequest(t, r, http.MethodPost, "/api/checkins", coach1Token, gin.H{"checked_at": "2026-07-01"}, http.StatusForbidden)
 	e2eRequest(t, r, http.MethodPost, "/api/checkins", disciple1Token, gin.H{"checked_at": "not-a-date"}, http.StatusBadRequest)
 	e2eRequest(t, r, http.MethodPost, "/api/checkins", disciple1Token, gin.H{"checked_at": "2026-07-01", "weight_kg": -1}, http.StatusBadRequest)
+	e2eRequest(t, r, http.MethodGet, "/api/checkins?from=not-a-date", disciple1Token, nil, http.StatusBadRequest)
 
 	exerciseID := e2eCreateExercise(t, r, coach1Token, "E2E Bench Press")
 	e2eRequest(t, r, http.MethodPost, "/api/exercises", disciple1Token, gin.H{"name": "E2E Disciple Forbidden", "primary_muscle": "chest"}, http.StatusForbidden)
@@ -427,6 +435,22 @@ func e2eAssertCheckinInList(t *testing.T, r http.Handler, token, path, checkinID
 		}
 	}
 	t.Fatalf("checkins list %s did not include %s: %#v", path, checkinID, out.Items)
+}
+
+func e2eAssertCheckinNotInList(t *testing.T, r http.Handler, token, path, checkinID string) {
+	t.Helper()
+	resp := e2eRequest(t, r, http.MethodGet, path, token, nil, http.StatusOK)
+	var out struct {
+		Items []struct {
+			ID string `json:"id"`
+		} `json:"items"`
+	}
+	e2eDecode(t, resp, &out)
+	for _, item := range out.Items {
+		if item.ID == checkinID {
+			t.Fatalf("checkins list %s unexpectedly included %s: %#v", path, checkinID, out.Items)
+		}
+	}
 }
 
 func e2eAssertCheckinDetail(t *testing.T, r http.Handler, token, checkinID, discipleID string, weight float64, notes string) {

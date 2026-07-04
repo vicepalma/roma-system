@@ -2,14 +2,20 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/vicepalma/roma-system/backend/internal/domain"
 	"gorm.io/gorm"
 )
 
+type CheckinFilter struct {
+	From *time.Time
+	To   *time.Time
+}
+
 type CheckinRepository interface {
 	Create(ctx context.Context, checkin *domain.Checkin) error
-	ListByDisciple(ctx context.Context, discipleID string, limit, offset int) ([]domain.Checkin, int64, error)
+	ListByDisciple(ctx context.Context, discipleID string, filter CheckinFilter, limit, offset int) ([]domain.Checkin, int64, error)
 	FindByID(ctx context.Context, id string) (*domain.Checkin, error)
 }
 
@@ -21,8 +27,14 @@ func (r *checkinRepository) Create(ctx context.Context, checkin *domain.Checkin)
 	return r.db.WithContext(ctx).Create(checkin).Error
 }
 
-func (r *checkinRepository) ListByDisciple(ctx context.Context, discipleID string, limit, offset int) ([]domain.Checkin, int64, error) {
+func (r *checkinRepository) ListByDisciple(ctx context.Context, discipleID string, filter CheckinFilter, limit, offset int) ([]domain.Checkin, int64, error) {
 	q := r.db.WithContext(ctx).Model(&domain.Checkin{}).Where("disciple_id = ?", discipleID)
+	if filter.From != nil {
+		q = q.Where("checked_at >= ?", *filter.From)
+	}
+	if filter.To != nil {
+		q = q.Where("checked_at <= ?", *filter.To)
+	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err

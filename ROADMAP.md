@@ -30,6 +30,9 @@ El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con 
 - ROMA-016 - Check-ins basicos.
 - ROMA-017 - Check-ins en vista coach.
 - ROMA-018 - Vista coach progreso discipulo.
+- ROMA-019 - Documentacion operativa y flujo por Work Items.
+- ROMA-020 - Pulir historial coach con contexto del alumno.
+- ROMA-021 - Filtros/paginacion de check-ins.
 
 ## Modo De Trabajo Actual
 
@@ -42,13 +45,10 @@ El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con 
 
 ## Proximo Work Item Recomendado
 
-- ROMA-020 - Pulir historial coach con contexto del alumno.
+- ROMA-022 - Edicion/borrado de check-ins, si se decide.
 
 ## Proximos Work Items Sugeridos
 
-- ROMA-019 - Documentacion operativa y flujo por Work Items.
-- ROMA-020 - Pulir historial coach con contexto del alumno.
-- ROMA-021 - Filtros/paginacion de check-ins.
 - ROMA-022 - Edicion/borrado de check-ins, si se decide.
 - ROMA-023 - Biblioteca de rutinas / plantillas Roma, diseno primero.
 - ROMA-024 - Demo FST-7 seed.
