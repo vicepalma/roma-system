@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getCoachDisciples, getCoachLinks } from '@/services/coach'
 import type { CoachDisciple, CoachLink } from '@/types/coach'
 import { NavLink } from 'react-router-dom'
+import { QueryState } from '@/components/ui/query-state'
 
 function StatusBadge({ status }: { status?: string }) {
   const s = (status ?? 'unknown').toLowerCase()
@@ -120,7 +121,7 @@ export default function Dashboard() {
             {rows.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
-                  Sin discípulos
+                  <QueryState title="Sin discipulos" detail="Cuando tengas discipulos vinculados apareceran aqui." />
                 </td>
               </tr>
             )}

@@ -3,8 +3,8 @@
 ## Estado actual
 - Fase actual: MVP seguimiento basico.
 - Objetivo actual: mejorar seguimiento coach/disciple sin ampliar alcance social ni reporting avanzado.
-- Ultimo checkpoint completado: ROMA-025 / CHK-025 - Hardening final MVP.
-- Proximo checkpoint sugerido: ROMA-026 - Pulido UI general MVP.
+- Ultimo checkpoint completado: ROMA-026 / CHK-026 - Pulido UI general MVP.
+- Proximo checkpoint sugerido: ROMA-027 - Preparacion demo local.
 
 ## Decisiones activas
 - [2026-06-24] Decision: no partir desde cero; rescatar repo con estabilizacion previa.
@@ -197,6 +197,13 @@ Objetivo: revisar seguridad, validaciones, UX critica, README y flujo demo antes
 Resultado: rutas `/api/coach/assignments/:id/calendar` y `/api/coach/assignments/:id/activate` ahora requieren rol `coach`; se agrego E2E para bloquear disciples en esas rutas; se actualizo README, estado actual, testing y se creo `docs/engineering/ROMA_MVP_HARDENING.md` con riesgos pendientes.
 Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL='postgres://roma:roma@localhost:55432/roma_e2e?sslmode=disable' GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1` contra Postgres temporal; `npm run build`.
 Proximo sugerido: ROMA-026.
+
+### ROMA-026 / CHK-026 - Pulido UI general MVP
+Estado: Done
+Objetivo: mejorar claridad y consistencia UI del MVP sin redisenar toda la app ni agregar features.
+Resultado: se agrego `QueryState` compartido para estados vacios/loading/error y se aplico en Entrenar, Historial, Check-ins, Dashboard coach y Asignaciones; se ajusto una inconsistencia visual menor en la tabla de asignaciones.
+Validado: `cd frontend/roma-web && npm run build`; `git diff --check`.
+Proximo sugerido: ROMA-027.
 
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.

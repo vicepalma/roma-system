@@ -9,6 +9,7 @@ import { startSession } from '@/services/sessions'
 import type { AssignmentDay } from '@/types/assignments'
 import { getMyActiveSession } from '@/services/sessions'
 import { getProgram, listPrescriptions } from '@/services/programs'
+import { QueryState } from '@/components/ui/query-state'
 
 function dayLabel(day: AssignmentDay) {
   return day.title?.trim() ? day.title : `Día ${day.day_index}`
@@ -207,15 +208,15 @@ export default function SessionsIndex() {
         </div>
 
         {activeAssignQ.isLoading ? (
-          <div className="text-sm text-gray-500">Cargando rutina activa…</div>
+          <QueryState title="Cargando rutina activa" detail="Buscando la rutina lista para entrenar." />
         ) : !activeAssignment ? (
-          <div className="text-sm text-gray-500">No tienes una rutina activa. Activa una desde Mis rutinas.</div>
+          <QueryState title="No tienes una rutina activa" detail="Activa una desde Mis rutinas para iniciar entrenamiento." />
         ) : daysQ.isLoading ? (
-          <div className="text-sm text-gray-500">Cargando días de la rutina activa…</div>
+          <QueryState title="Cargando dias" detail="Preparando los dias disponibles de tu rutina activa." />
         ) : daysQ.isError ? (
-          <div className="text-sm text-red-600">No pudimos cargar los días de la rutina activa.</div>
+          <QueryState tone="error" title="No pudimos cargar los dias" detail="Reintenta o revisa si la rutina sigue activa." />
         ) : days.length === 0 ? (
-          <div className="text-sm text-gray-500">Esta rutina activa todavía no tiene días configurados.</div>
+          <QueryState title="La rutina activa no tiene dias" detail="Agrega dias desde Mis rutinas antes de entrenar." />
         ) : (
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,420px)]">
             <div className="space-y-2">
@@ -286,7 +287,7 @@ export default function SessionsIndex() {
                   )}
 
                   {prescQ.isLoading ? (
-                    <div className="text-sm text-gray-500 mt-3">Cargando ejercicios…</div>
+                    <QueryState className="mt-3" title="Cargando ejercicios" detail="Revisando prescripciones del dia seleccionado." />
                   ) : prescriptions.length ? (
                     <ul className="mt-3 divide-y dark:divide-neutral-800">
                       {prescriptions.map((p) => {
@@ -305,11 +306,11 @@ export default function SessionsIndex() {
                       })}
                     </ul>
                   ) : (
-                    <div className="text-sm text-gray-500 mt-3">Este día todavía no tiene ejercicios.</div>
+                    <QueryState className="mt-3" title="Este dia no tiene ejercicios" detail="Agrega prescripciones antes de iniciar una sesion." />
                   )}
                 </>
               ) : (
-                <div className="text-sm text-gray-500">Selecciona un día para ver sus ejercicios.</div>
+                <QueryState title="Selecciona un dia" detail="Veras ejercicios, descansos y accion para iniciar sesion." />
               )}
             </div>
           </div>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createCheckin, listCheckins, updateCheckin, type Checkin } from '@/services/checkins'
 import { useToast } from '@/components/toast/ToastProvider'
+import { QueryState } from '@/components/ui/query-state'
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10)
@@ -204,10 +205,14 @@ export default function Checkins() {
             Página {page} de {totalPages}
           </span>
         </div>
-        {q.isLoading && <div className="text-sm text-gray-500">Cargando check-ins...</div>}
-        {q.isError && <div className="text-sm text-red-600">No se pudieron cargar los check-ins.</div>}
+        {q.isLoading && (
+          <QueryState title="Cargando check-ins" detail="Estamos preparando tus registros de seguimiento." />
+        )}
+        {q.isError && (
+          <QueryState tone="error" title="No se pudieron cargar los check-ins" detail="Reintenta en unos segundos." />
+        )}
         {!q.isLoading && !q.isError && (q.data?.items ?? []).length === 0 && (
-          <div className="text-sm text-gray-500">Aún no tienes check-ins.</div>
+          <QueryState title="Aun no tienes check-ins" detail="Registra el primero para revisar tu progreso con mas contexto." />
         )}
         <ul className="space-y-2">
           {(q.data?.items ?? []).map((item) => (

@@ -6,6 +6,7 @@ import { getCoachAssignments, createAssignment, activateAssignment } from '@/ser
 import type { AssignmentListRow } from '@/types/assignments'
 import AssignmentForm from '@/components/forms/AssignmentForm'
 import { listProgramOptions, type ProgramOption } from '@/services/programs'
+import { QueryState } from '@/components/ui/query-state'
 
 function StatusBadge({ active }: { active: boolean }) {
   const cls = active
@@ -152,6 +153,16 @@ export default function Assignments() {
 
       <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800">
         <div className="p-4 font-semibold">Asignaciones</div>
+        {assignmentsQ.isLoading && (
+          <div className="px-4 pb-4">
+            <QueryState title="Cargando asignaciones" detail="Revisando programas asignados a tus discipulos." />
+          </div>
+        )}
+        {assignmentsQ.isError && (
+          <div className="px-4 pb-4">
+            <QueryState tone="error" title="No se pudieron cargar las asignaciones" detail="Intenta nuevamente antes de crear o activar programas." />
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 dark:bg-neutral-800 text-gray-600 dark:text-neutral-300">
@@ -195,9 +206,9 @@ export default function Assignments() {
                   </td>
                 </tr>
               ))}
-              {rows.length === 0 && (
+              {!assignmentsQ.isLoading && !assignmentsQ.isError && rows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
+                  <td colSpan={8} className="px-4 py-6 text-center text-gray-500">
                     No hay asignaciones
                   </td>
                 </tr>

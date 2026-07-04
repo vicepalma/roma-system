@@ -5,6 +5,7 @@ import { getHistoryPivot, getHistorySessions } from '@/services/history'
 import { listMyPrograms } from '@/services/programs'
 import { getCoachDisciples } from '@/services/coach'
 import OverviewVolumeChart from '@/components/charts/OverviewVolumeChart'
+import { QueryState } from '@/components/ui/query-state'
 import useAuth from '@/store/auth'
 import type { CoachDisciple } from '@/types/coach'
 
@@ -184,15 +185,15 @@ export default function History() {
         </div>
       </div>
 
-      {q.isLoading && <div>Cargando…</div>}
-      {q.isError && <div className="text-red-600">No se pudo cargar el pivot</div>}
+      {q.isLoading && <QueryState title="Cargando resumen" detail="Calculando volumen y actividad reciente." />}
+      {q.isError && <QueryState tone="error" title="No se pudo cargar el resumen" detail="El historial de sesiones sigue disponible abajo." />}
 
       <div className="rounded border bg-white p-4 dark:bg-neutral-900 dark:border-neutral-800">
         <div className="font-semibold mb-3">Sesiones</div>
-        {sessionsQ.isLoading && <div className="text-sm text-gray-500">Cargando sesiones…</div>}
-        {sessionsQ.isError && <div className="text-sm text-red-600">No se pudo cargar el historial de sesiones</div>}
+        {sessionsQ.isLoading && <QueryState title="Cargando sesiones" detail="Buscando entrenamientos con los filtros actuales." />}
+        {sessionsQ.isError && <QueryState tone="error" title="No se pudo cargar el historial de sesiones" detail="Revisa los filtros o intenta nuevamente." />}
         {!sessionsQ.isLoading && !sessionsQ.isError && (sessionsQ.data?.items ?? []).length === 0 && (
-          <div className="text-sm text-gray-500">No hay sesiones para estos filtros.</div>
+          <QueryState title="No hay sesiones para estos filtros" detail="Ajusta fechas, estado o rutina para ampliar la busqueda." />
         )}
         <ul className="space-y-2">
           {(sessionsQ.data?.items ?? []).map((session) => {
