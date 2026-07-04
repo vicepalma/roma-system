@@ -52,10 +52,11 @@ El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con 
 
 - ROMA-027 - Preparacion demo local.
 
-## Proximos Work Items Sugeridos
+## Proximos despues del MVP inicial
 
 - ROMA-027 - Preparacion demo local.
 - ROMA-0XX - Archivar o eliminar check-ins propios, si se decide.
+- ROMA-0XX - Ajustes menores detectados durante demo, solo con WI especifico.
 
 ## Fuera De Alcance Actual
 

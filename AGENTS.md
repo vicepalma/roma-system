@@ -45,6 +45,12 @@ Para implementar un WI, el agente debe leer en este orden:
 
 El agente debe implementar solo lo pedido por el WI. Si encuentra algo necesario pero fuera de alcance, debe documentarlo como pendiente o sugerir un nuevo WI. Al final del checkpoint debe actualizar `docs/tracking/ROMA_DEV_LOG.md`, validar segun el tipo de cambio y responder con el formato esperado. No debe hacer commits automaticamente.
 
+## Cambios Sin Commit
+
+Los cambios sin commit no bloquean automaticamente un nuevo checkpoint.
+
+Al inicio, el agente debe revisar `git status --short` y advertir si existen cambios locales. Si parecen pertenecer al WI anterior, debe recomendar hacer commit antes de continuar. Si el usuario insiste en continuar, puede seguir trabajando con cuidado. Solo debe bloquearse y pedir decision cuando los cambios sin commit choquen directamente con el nuevo WI o hagan riesgoso distinguir responsabilidades.
+
 ## Modo Recuperacion De Contexto
 
 Si el usuario vuelve despues de tiempo o no recuerda el estado, por ejemplo:

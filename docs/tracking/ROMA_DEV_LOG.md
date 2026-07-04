@@ -1,8 +1,8 @@
 # ROMA Dev Log
 
 ## Estado actual
-- Fase actual: MVP seguimiento basico.
-- Objetivo actual: mejorar seguimiento coach/disciple sin ampliar alcance social ni reporting avanzado.
+- Fase actual: post MVP inicial / preparacion demo local.
+- Objetivo actual: dejar una demo local facil de levantar y probar sin crear features nuevas.
 - Ultimo checkpoint completado: ROMA-026 / CHK-026 - Pulido UI general MVP.
 - Proximo checkpoint sugerido: ROMA-027 - Preparacion demo local.
 
@@ -203,6 +203,13 @@ Estado: Done
 Objetivo: mejorar claridad y consistencia UI del MVP sin redisenar toda la app ni agregar features.
 Resultado: se agrego `QueryState` compartido para estados vacios/loading/error y se aplico en Entrenar, Historial, Check-ins, Dashboard coach y Asignaciones; se ajusto una inconsistencia visual menor en la tabla de asignaciones.
 Validado: `cd frontend/roma-web && npm run build`; `git diff --check`.
+Proximo sugerido: ROMA-027.
+
+### Flujo agentes / ROMA-027 preparado
+Estado: Done
+Objetivo: ajustar reglas de trabajo con cambios sin commit, cerrar el roadmap inicial y crear el WI de preparacion demo local.
+Resultado: `AGENTS.md` aclara que cambios sin commit no bloquean automaticamente; `ROADMAP.md` agrega proximos despues del MVP inicial; `docs/work-items/ROMA-027.md` creado para documentar demo local sin tocar backend/frontend.
+Validado: `git status --short`.
 Proximo sugerido: ROMA-027.
 
 ## Pendientes importantes
