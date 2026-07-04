@@ -146,12 +146,12 @@ Resultado: detalle muestra resumen, rutina activa, ultimos entrenamientos, check
 Validado: `npm run build`.
 Pendiente: mejorar vista completa de historial coach con nombre del disciple y opciones de contexto.
 
-### CHK-019 - Documentacion operativa minima
-Estado: Completado.
-Objetivo: dejar guias cortas para retomar producto, setup, testing, reglas y roadmap.
-Resultado: README, AGENTS, ROADMAP y docs product/engineering creados o actualizados con comandos y estado actual.
+### ROMA-019 / CHK-019 - Documentacion operativa y flujo por Work Items
+Estado: Done
+Objetivo: crear una forma segura y simple de desarrollo orientado a agentes.
+Resultado: `ROADMAP.md` creado; `AGENTS.md` actualizado para operar por Work Items; creada carpeta `docs/work-items/` con README, template y ROMA-019; creados stubs minimos ROMA-020 a ROMA-025.
 Validado: `git status --short`.
-Pendiente: mantener docs sincronizadas en cada checkpoint funcional.
+Proximo sugerido: ROMA-020.
 
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.

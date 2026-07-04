@@ -1,24 +1,65 @@
 # Roadmap Roma System
 
+## Producto
+
+Roma System es software para entrenadores y discipulos. El coach construye y administra entrenamiento para otros; el disciple ejecuta entrenamiento y, si no tiene coach, puede crear rutinas propias usando ejercicios existentes.
+
+No es una comunidad, red social ni sistema de simpatizantes.
+
+## Estado Actual
+
+El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con migraciones, Docker Compose, roles `coach` / `disciple`, guards de ownership, tests unitarios backend, E2E/API con DB real, self-training minimo, sesiones activas/cerradas, historial con filtros, check-ins basicos y vista coach de progreso del disciple.
+
 ## Completado
 
-- Rescate del repo, build backend/frontend y compose operativo.
-- Roles persistentes `coach` / `disciple`.
-- Guards de permisos, ownership y relacion coach-disciple.
-- Self-training minimo para disciple sin coach.
-- Activacion de rutina propia con una sola self-training activa.
-- Bloqueo de sesiones sobre assignments inactivos.
-- Sesiones activas/cerradas y resumen basico.
-- Historial con metadata y filtros backend.
-- Check-ins basicos.
-- Vista coach del progreso del disciple.
-- Tests unitarios backend y E2E/API con DB real.
+- ROMA-001 - Auditoria inicial.
+- ROMA-002 - Fase 0 build verde.
+- ROMA-003 - Migraciones y arranque local.
+- ROMA-004 - Roles y guards.
+- ROMA-005 - Tests de permisos.
+- ROMA-006 - E2E/API con DB.
+- ROMA-007 - Self-training minimo.
+- ROMA-008 - Activacion self-training unica.
+- ROMA-009 - Bloquear sesiones sobre assignments inactivos.
+- ROMA-010 - UX Entrenar.
+- ROMA-011 - Editar rutinas.
+- ROMA-012 - Rutina activa y dias descriptivos.
+- ROMA-013 - Cierre de sesion y resumen.
+- ROMA-014 - Historial de sesiones.
+- ROMA-015 - Filtros de historial.
+- ROMA-016 - Check-ins basicos.
+- ROMA-017 - Check-ins en vista coach.
+- ROMA-018 - Vista coach progreso discipulo.
 
-## Proximos Checkpoints Sugeridos
+## Modo De Trabajo Actual
 
-- Pulir historial coach con contexto visible del alumno.
-- Filtros/paginacion de check-ins.
-- Edicion/borrado de check-ins si se decide.
-- Biblioteca de rutinas/plantillas Roma.
-- Demo FST-7 completa.
-- Hardening final de permisos, errores y UX.
+- El proyecto se trabaja por Work Items `ROMA-XXX`.
+- Cada Work Item debe existir en `docs/work-items/` antes de implementar.
+- Si el usuario no entrega un WI, el agente debe leer este roadmap y `docs/tracking/ROMA_DEV_LOG.md`, recomendar el siguiente WI y no implementar todavia.
+- No implementar ideas sueltas.
+- No mezclar features grandes con bugfixes.
+- El tracking historico vive en `docs/tracking/ROMA_DEV_LOG.md`; el alcance ejecutable vive en cada WI.
+
+## Proximo Work Item Recomendado
+
+- ROMA-020 - Pulir historial coach con contexto del alumno.
+
+## Proximos Work Items Sugeridos
+
+- ROMA-019 - Documentacion operativa y flujo por Work Items.
+- ROMA-020 - Pulir historial coach con contexto del alumno.
+- ROMA-021 - Filtros/paginacion de check-ins.
+- ROMA-022 - Edicion/borrado de check-ins, si se decide.
+- ROMA-023 - Biblioteca de rutinas / plantillas Roma, diseno primero.
+- ROMA-024 - Demo FST-7 seed.
+- ROMA-025 - Hardening final MVP.
+- ROMA-026 - Pulido UI general MVP.
+- ROMA-027 - Preparacion demo local.
+
+## Fuera De Alcance Actual
+
+- Comunidad, red social o simpatizantes.
+- Biblioteca global de rutinas/plantillas sin WI explicito.
+- Fotos, adjuntos o mediciones avanzadas de check-ins.
+- Graficos grandes o reporting avanzado.
+- Features grandes mezcladas con bugfixes.
