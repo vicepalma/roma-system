@@ -64,8 +64,8 @@ func (h *CoachHandler) Register(r *gin.RouterGroup) {
 			h.getOverview,
 		)
 		grp.PATCH("/assignments/:id", security.RequireRole(h.db, "coach"), h.requireAssignmentAccess, h.patchAssignment)
-		grp.GET("/assignments/:id/calendar", h.requireAssignmentAccess, h.assignmentCalendar)
-		grp.POST("/assignments/:id/activate", h.requireAssignmentAccess, h.activateAssignment)
+		grp.GET("/assignments/:id/calendar", security.RequireRole(h.db, "coach"), h.requireAssignmentAccess, h.assignmentCalendar)
+		grp.POST("/assignments/:id/activate", security.RequireRole(h.db, "coach"), h.requireAssignmentAccess, h.activateAssignment)
 		// grp.POST("/invitations", security.RequireCoachOfSelf(h.svc), h.createInvite) // o AuthRequired si no tienes rol
 		// grp.POST("/invitations/:code/accept", security.AuthRequired(), h.acceptInvite)
 	}
@@ -437,13 +437,13 @@ func (h *CoachHandler) activateAssignment(c *gin.Context) {
 		return
 	}
 
-	// Autorización mínima: el caller debe ser el coach del discípulo o el mismo discípulo
+	// Autorización: solo el coach vinculado puede activar assignments de coach.
 	isCoach, err := h.svc.CanCoach(c.Request.Context(), uid, discipleID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
 		return
 	}
-	if !(isCoach || uid == discipleID) {
+	if !isCoach {
 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}

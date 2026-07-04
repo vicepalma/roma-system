@@ -31,6 +31,14 @@ npm run build
 
 Debe correrse ante cambios en frontend o contratos consumidos por frontend.
 
+## Seeds Demo Opcionales
+
+Los seeds demo no forman parte de las migraciones oficiales. Para validar la demo FST-7, primero aplica migraciones oficiales sobre una DB local/test y luego:
+
+```bash
+psql 'postgres://roma:roma@localhost:5432/roma?sslmode=disable' -v ON_ERROR_STOP=1 -f database/seed/demo_fst7.up.sql
+```
+
 ## Cuando Correr Cada Validacion
 
 - Solo docs: `git status --short`.

@@ -14,7 +14,7 @@
 - Registra sets.
 - Finaliza sesiones.
 - Revisa historial y resumen de sesiones.
-- Crea y lista check-ins propios.
+- Crea, lista y edita check-ins propios.
 
 ## Flujo Coach
 
@@ -41,8 +41,9 @@
 ## Check-ins
 
 - El disciple crea check-ins con fecha, peso opcional y notas.
+- El disciple puede editar sus propios check-ins.
 - Coach vinculado puede listar/ver check-ins del disciple.
-- No hay edicion/borrado, fotos, adjuntos ni graficos todavia.
+- No hay borrado, fotos, adjuntos ni graficos todavia.
 
 ## Tests
 
@@ -52,7 +53,7 @@
 
 ## Pendientes
 
-- Contexto de alumno mas claro en historial coach.
-- Filtros/paginacion de check-ins.
-- Demo FST-7 completa.
-- Biblioteca de rutinas/plantillas si se prioriza.
+- Consolidar/eliminar `master_disciple` cuando sea seguro.
+- Consolidar `invitations`/`invite_codes` si se prioriza flujo de invitaciones.
+- Biblioteca de rutinas/plantillas funcional si se prioriza.
+- Preparacion demo local y pulido UI general MVP.

@@ -48,6 +48,12 @@ cd frontend/roma-web
 npm run build
 ```
 
+Seed demo FST-7 opcional, sobre una DB local ya migrada:
+
+```bash
+psql 'postgres://roma:roma@localhost:5432/roma?sslmode=disable' -v ON_ERROR_STOP=1 -f database/seed/demo_fst7.up.sql
+```
+
 ## Documentos Principales
 
 - `AGENTS.md`
@@ -57,4 +63,5 @@ npm run build
 - `docs/engineering/DEVELOPMENT_SETUP.md`
 - `docs/engineering/TESTING_GUIDE.md`
 - `docs/engineering/DEMO_USERS.md`
+- `docs/engineering/ROMA_MVP_HARDENING.md`
 - `docs/tracking/ROMA_DEV_LOG.md`

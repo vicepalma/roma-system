@@ -3,8 +3,8 @@
 ## Estado actual
 - Fase actual: MVP seguimiento basico.
 - Objetivo actual: mejorar seguimiento coach/disciple sin ampliar alcance social ni reporting avanzado.
-- Ultimo checkpoint completado: ROMA-024 / CHK-024 - Demo FST-7 seed opcional.
-- Proximo checkpoint sugerido: ROMA-025 - Hardening final MVP.
+- Ultimo checkpoint completado: ROMA-025 / CHK-025 - Hardening final MVP.
+- Proximo checkpoint sugerido: ROMA-026 - Pulido UI general MVP.
 
 ## Decisiones activas
 - [2026-06-24] Decision: no partir desde cero; rescatar repo con estabilizacion previa.
@@ -190,6 +190,13 @@ Objetivo: cargar una pauta demo FST-7 como seed opcional para probar Roma con da
 Resultado: `0008_demo_fst7_seed` fue retirado de migraciones oficiales; el seed quedo en `database/seed/demo_fst7.up.sql` y `database/seed/demo_fst7.down.sql`, con cuentas demo `@roma.demo`, vinculo coach-disciple, programa privado `[DEMO] FST-7 Hipertrofia - 5 dias`, 5 dias, 16 prescripciones, 5 cierres FST-7 y assignment activo para ejecucion local.
 Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; migraciones oficiales `0001` a `0007` aplicadas en Postgres temporal limpio sin seed demo; `database/seed/demo_fst7.up.sql` aplicado manualmente; smoke SQL creo una sesion y un set sobre el assignment demo.
 Proximo sugerido: ROMA-025.
+
+### ROMA-025 / CHK-025 - Hardening final MVP
+Estado: Done
+Objetivo: revisar seguridad, validaciones, UX critica, README y flujo demo antes de considerar MVP.
+Resultado: rutas `/api/coach/assignments/:id/calendar` y `/api/coach/assignments/:id/activate` ahora requieren rol `coach`; se agrego E2E para bloquear disciples en esas rutas; se actualizo README, estado actual, testing y se creo `docs/engineering/ROMA_MVP_HARDENING.md` con riesgos pendientes.
+Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL='postgres://roma:roma@localhost:55432/roma_e2e?sslmode=disable' GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1` contra Postgres temporal; `npm run build`.
+Proximo sugerido: ROMA-026.
 
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.

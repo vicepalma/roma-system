@@ -146,6 +146,8 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 		"program_id":  programID,
 		"start_date":  "2026-06-29",
 	}, http.StatusForbidden)
+	e2eRequest(t, r, http.MethodPost, "/api/coach/assignments/"+assignmentID+"/activate?disciple_id="+disciple1ID, disciple1Token, nil, http.StatusForbidden)
+	e2eRequest(t, r, http.MethodGet, "/api/coach/assignments/"+assignmentID+"/calendar", disciple1Token, nil, http.StatusForbidden)
 	e2eRequest(t, r, http.MethodPost, "/api/coach/assignments/"+assignmentID+"/activate?disciple_id="+disciple1ID, coach1Token, nil, http.StatusNoContent)
 
 	sessionID := e2ePostID(t, r, http.MethodPost, "/api/sessions", disciple1Token, gin.H{
