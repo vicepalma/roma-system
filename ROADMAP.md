@@ -40,6 +40,7 @@ El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con 
 - ROMA-026 - Pulido UI general MVP.
 - ROMA-027 - Preparacion demo local.
 - ROMA-028 - Demo local: prueba manual y lista de ajustes menores.
+- ROMA-029 - Registrar hallazgos demo y ajustar roadmap.
 
 ## Modo De Trabajo Actual
 
@@ -52,7 +53,7 @@ El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con 
 
 ## Proximo Work Item Recomendado
 
-- ROMA-029 - Registrar hallazgos demo y ajustar roadmap.
+- ROMA-030 - Coach puede usar entrenamiento personal.
 
 ## Proximos despues del MVP inicial
 

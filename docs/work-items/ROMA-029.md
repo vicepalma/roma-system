@@ -1,6 +1,6 @@
 # ROMA-029 - Registrar hallazgos demo y ajustar roadmap
 
-Estado: Planned
+Estado: Done
 Tipo: docs
 Fecha: 2026-07-04
 Autor: Codex
@@ -57,3 +57,19 @@ No es obligatorio correr tests automatizados porque solo se toca documentacion.
 ## Resultado esperado del agente
 
 Responder con archivos modificados, validaciones ejecutadas y commit sugerido. No hacer commit automaticamente.
+
+## Resultado
+
+Se consolidaron los hallazgos registrados en ROMA-028 y se ajusto el roadmap post MVP inicial con esta secuencia:
+
+- ROMA-030 - Coach puede usar entrenamiento personal.
+- ROMA-031 - Mis rutinas: asignadas, propias e importadas.
+- ROMA-032 - Diseno biblioteca de rutinas.
+- ROMA-033 - Implementar biblioteca de rutinas MVP.
+
+No se cambiaron backend, frontend ni migraciones. No se implementaron fixes ni features.
+
+## Validado
+
+- `git status --short`
+- `git diff --check`

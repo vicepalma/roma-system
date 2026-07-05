@@ -2,9 +2,9 @@
 
 ## Estado actual
 - Fase actual: post MVP inicial / ajustes detectados en demo local.
-- Objetivo actual: registrar hallazgos de demo y ordenar la siguiente fase post MVP antes de implementar cambios funcionales.
-- Ultimo checkpoint completado: ROMA-028 / CHK-028 - Demo local: prueba manual y lista de ajustes menores.
-- Proximo checkpoint sugerido: ROMA-029 - Registrar hallazgos demo y ajustar roadmap.
+- Objetivo actual: habilitar entrenamiento personal para coach como primer ajuste funcional post demo.
+- Ultimo checkpoint completado: ROMA-029 / CHK-029 - Registrar hallazgos demo y ajustar roadmap.
+- Proximo checkpoint sugerido: ROMA-030 - Coach puede usar entrenamiento personal.
 
 ## Decisiones activas
 - [2026-06-24] Decision: no partir desde cero; rescatar repo con estabilizacion previa.
@@ -233,12 +233,12 @@ Proximo sugerido: ROMA-029.
 - ROMA-032 - Diseno biblioteca de rutinas.
 - ROMA-033 - Implementar biblioteca de rutinas MVP.
 
-### ROMA-029 preparado - Registrar hallazgos demo y ajustar roadmap
-Estado: Planned
+### ROMA-029 / CHK-029 - Registrar hallazgos demo y ajustar roadmap
+Estado: Done
 Objetivo: documentar los hallazgos de demo y ordenar la siguiente fase despues del MVP inicial.
-Resultado: `docs/work-items/ROMA-029.md` creado como checkpoint documental; no se implementaron fixes ni features.
-Validado: pendiente al ejecutar ROMA-029.
-Proximo sugerido: ROMA-029.
+Resultado: se consolido la fase post MVP inicial: ROMA-030 coach puede usar entrenamiento personal; ROMA-031 ordena "Mis rutinas" entre asignadas, propias e importadas; ROMA-032 disena biblioteca de rutinas; ROMA-033 implementa el MVP de biblioteca. No se cambiaron backend, frontend ni migraciones.
+Validado: `git status --short`; `git diff --check`.
+Proximo sugerido: ROMA-030.
 
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
