@@ -240,6 +240,13 @@ Resultado: se consolido la fase post MVP inicial: ROMA-030 coach puede usar entr
 Validado: `git status --short`; `git diff --check`.
 Proximo sugerido: ROMA-030.
 
+### Fase post MVP preparada - ROMA-030 a ROMA-033
+Estado: Planned
+Objetivo: dejar creados los Work Items ejecutables de la fase posterior al MVP inicial.
+Resultado: creados `docs/work-items/ROMA-030.md`, `docs/work-items/ROMA-031.md`, `docs/work-items/ROMA-032.md` y `docs/work-items/ROMA-033.md` usando la plantilla de Work Items. No se cambiaron backend, frontend ni migraciones.
+Validado: `git status --short`; `git diff --check`.
+Proximo sugerido: ROMA-030.
+
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
 - Ampliar E2E cuando aparezcan endpoints de editar sets/check-ins.

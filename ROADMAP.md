@@ -57,7 +57,6 @@ El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con 
 
 ## Proximos despues del MVP inicial
 
-- ROMA-029 - Registrar hallazgos demo y ajustar roadmap.
 - ROMA-030 - Coach puede usar entrenamiento personal.
 - ROMA-031 - Mis rutinas: asignadas, propias e importadas.
 - ROMA-032 - Diseno biblioteca de rutinas.
