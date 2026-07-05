@@ -39,6 +39,7 @@ El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con 
 - ROMA-025 - Hardening final MVP.
 - ROMA-026 - Pulido UI general MVP.
 - ROMA-027 - Preparacion demo local.
+- ROMA-028 - Demo local: prueba manual y lista de ajustes menores.
 
 ## Modo De Trabajo Actual
 
@@ -51,12 +52,24 @@ El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con 
 
 ## Proximo Work Item Recomendado
 
-- ROMA-028 - Demo local: prueba manual y lista de ajustes menores.
+- ROMA-029 - Registrar hallazgos demo y ajustar roadmap.
 
 ## Proximos despues del MVP inicial
 
-- ROMA-029 - Ajustes menores detectados durante demo, solo con WI especifico.
+- ROMA-029 - Registrar hallazgos demo y ajustar roadmap.
+- ROMA-030 - Coach puede usar entrenamiento personal.
+- ROMA-031 - Mis rutinas: asignadas, propias e importadas.
+- ROMA-032 - Diseno biblioteca de rutinas.
+- ROMA-033 - Implementar biblioteca de rutinas MVP.
 - ROMA-0XX - Archivar o eliminar check-ins propios, si se decide.
+
+## Criterio Siguiente Fase
+
+- ROMA-029 documenta hallazgos de demo y ordena proximos pasos.
+- ROMA-030 permite que un coach tambien use flujo personal de entrenamiento.
+- ROMA-031 ordena "Mis rutinas" distinguiendo asignadas por maestro, propias e importadas.
+- ROMA-032 disena la biblioteca de rutinas antes de implementarla.
+- ROMA-033 implementa el MVP de biblioteca de rutinas.
 
 ## Fuera De Alcance Actual
 

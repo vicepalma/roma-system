@@ -1,10 +1,10 @@
 # ROMA Dev Log
 
 ## Estado actual
-- Fase actual: post MVP inicial / preparacion demo local.
-- Objetivo actual: probar manualmente la demo local y registrar ajustes menores candidatos.
-- Ultimo checkpoint completado: ROMA-027 / CHK-027 - Preparacion demo local.
-- Proximo checkpoint sugerido: ROMA-028 - Demo local: prueba manual y lista de ajustes menores.
+- Fase actual: post MVP inicial / ajustes detectados en demo local.
+- Objetivo actual: registrar hallazgos de demo y ordenar la siguiente fase post MVP antes de implementar cambios funcionales.
+- Ultimo checkpoint completado: ROMA-028 / CHK-028 - Demo local: prueba manual y lista de ajustes menores.
+- Proximo checkpoint sugerido: ROMA-029 - Registrar hallazgos demo y ajustar roadmap.
 
 ## Decisiones activas
 - [2026-06-24] Decision: no partir desde cero; rescatar repo con estabilizacion previa.
@@ -219,12 +219,26 @@ Resultado: se creo `docs/engineering/LOCAL_DEMO.md` con pasos para levantar back
 Validado: `git status --short`; `git diff --check`.
 Proximo sugerido: ROMA-028.
 
-### ROMA-028 preparado - Demo local: prueba manual y lista de ajustes menores
-Estado: Planned
+### ROMA-028 / CHK-028 - Demo local: prueba manual y lista de ajustes menores
+Estado: Done
 Objetivo: definir una prueba manual completa del MVP local usando `LOCAL_DEMO.md` y el seed FST-7 opcional, registrando bugs, fricciones y ajustes menores sin implementar cambios todavia.
-Resultado: `docs/work-items/ROMA-028.md` creado como siguiente checkpoint documental/manual; no se implementaron fixes ni features.
-Validado: pendiente al ejecutar ROMA-028.
-Proximo sugerido: ROMA-028.
+Resultado: se registraron hallazgos de demo: coach tambien necesita self-training; "Mis rutinas" debe distinguir rutinas propias/importadas de rutinas asignadas por maestro; las rutinas asignadas no deben eliminarse desde la seccion personal; self-training independiente funciona correctamente; falta biblioteca de rutinas visible para Discipulos e Independientes; importar desde biblioteca debe copiar a "Mis rutinas" sin borrar la plantilla global al eliminar la copia.
+Validado: `git status --short`.
+Proximo sugerido: ROMA-029.
+
+### Proximos WIs sugeridos por ROMA-028
+- ROMA-029 - Registrar hallazgos demo y ajustar roadmap.
+- ROMA-030 - Coach puede usar entrenamiento personal.
+- ROMA-031 - Mis rutinas: asignadas, propias e importadas.
+- ROMA-032 - Diseno biblioteca de rutinas.
+- ROMA-033 - Implementar biblioteca de rutinas MVP.
+
+### ROMA-029 preparado - Registrar hallazgos demo y ajustar roadmap
+Estado: Planned
+Objetivo: documentar los hallazgos de demo y ordenar la siguiente fase despues del MVP inicial.
+Resultado: `docs/work-items/ROMA-029.md` creado como checkpoint documental; no se implementaron fixes ni features.
+Validado: pendiente al ejecutar ROMA-029.
+Proximo sugerido: ROMA-029.
 
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
