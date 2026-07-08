@@ -94,7 +94,13 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 	e2eRequest(t, r, http.MethodGet, "/api/checkins/"+checkinID, coach1Token, nil, http.StatusOK)
 	e2eRequest(t, r, http.MethodGet, "/api/coach/disciples/"+disciple1ID+"/checkins", coach2Token, nil, http.StatusForbidden)
 	e2eRequest(t, r, http.MethodGet, "/api/checkins/"+checkinID, coach2Token, nil, http.StatusForbidden)
-	e2eRequest(t, r, http.MethodPost, "/api/checkins", coach1Token, gin.H{"checked_at": "2026-07-01"}, http.StatusForbidden)
+	coachCheckinID := e2ePostID(t, r, http.MethodPost, "/api/checkins", coach1Token, gin.H{
+		"checked_at": "2026-07-01",
+		"weight_kg":  81.2,
+		"notes":      "Coach personal check-in",
+	}, http.StatusCreated)
+	e2eAssertCheckinInList(t, r, coach1Token, "/api/checkins", coachCheckinID)
+	e2eAssertCheckinDetail(t, r, coach1Token, coachCheckinID, coach1ID, 81.2, "Coach personal check-in")
 	e2eRequest(t, r, http.MethodPost, "/api/checkins", disciple1Token, gin.H{"checked_at": "not-a-date"}, http.StatusBadRequest)
 	e2eRequest(t, r, http.MethodPost, "/api/checkins", disciple1Token, gin.H{"checked_at": "2026-07-01", "weight_kg": -1}, http.StatusBadRequest)
 	e2eRequest(t, r, http.MethodGet, "/api/checkins?from=not-a-date", disciple1Token, nil, http.StatusBadRequest)
@@ -251,6 +257,27 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 	e2eRequest(t, r, http.MethodGet, "/api/programs/"+selfProgramID, coach1Token, nil, http.StatusForbidden)
 	e2eRequest(t, r, http.MethodPost, "/api/programs/"+programID+"/self-assignment", disciple3Token, gin.H{"start_date": "2026-06-29"}, http.StatusForbidden)
 	e2eRequest(t, r, http.MethodPost, "/api/programs/"+selfProgramID+"/self-assignment", coach1Token, gin.H{"start_date": "2026-06-29"}, http.StatusForbidden)
+	coachSelfProgramID := e2eCreateSelfTrainingProgram(t, r, coach1Token, "E2E Coach Personal Routine")
+	coachSelfWeekID := e2ePostID(t, r, http.MethodPost, "/api/programs/"+coachSelfProgramID+"/weeks", coach1Token, gin.H{"week_index": 1}, http.StatusCreated)
+	coachSelfDayID := e2ePostID(t, r, http.MethodPost, "/api/programs/"+coachSelfProgramID+"/weeks/"+coachSelfWeekID+"/days", coach1Token, gin.H{"day_index": 1}, http.StatusCreated)
+	coachSelfPrescriptionID := e2ePostID(t, r, http.MethodPost, "/api/programs/days/"+coachSelfDayID+"/prescriptions", coach1Token, gin.H{
+		"exercise_id": exerciseID,
+		"series":      3,
+		"reps":        "12",
+		"position":    1,
+	}, http.StatusCreated)
+	coachSelfAssignmentID := e2ePostID(t, r, http.MethodPost, "/api/programs/"+coachSelfProgramID+"/self-assignment", coach1Token, gin.H{"start_date": "2026-06-29"}, http.StatusCreated)
+	e2eAssertActiveAssignment(t, r, coach1Token, coachSelfAssignmentID)
+	coachSelfSessionID := e2ePostID(t, r, http.MethodPost, "/api/sessions", coach1Token, gin.H{
+		"assignment_id": coachSelfAssignmentID,
+		"day_id":        coachSelfDayID,
+	}, http.StatusCreated)
+	e2ePostID(t, r, http.MethodPost, "/api/sessions/"+coachSelfSessionID+"/sets", coach1Token, gin.H{
+		"prescription_id": coachSelfPrescriptionID,
+		"set_index":       1,
+		"reps":            12,
+	}, http.StatusCreated)
+	e2eRequest(t, r, http.MethodGet, "/api/history", coach1Token, nil, http.StatusOK)
 	selfWeekID := e2ePostID(t, r, http.MethodPost, "/api/programs/"+selfProgramID+"/weeks", disciple3Token, gin.H{"week_index": 1}, http.StatusCreated)
 	selfDayID := e2ePostID(t, r, http.MethodPost, "/api/programs/"+selfProgramID+"/weeks/"+selfWeekID+"/days", disciple3Token, gin.H{"day_index": 1}, http.StatusCreated)
 	e2ePostID(t, r, http.MethodPost, "/api/programs/days/"+selfDayID+"/prescriptions", disciple3Token, gin.H{
@@ -275,6 +302,8 @@ func TestE2EAPIPermissionsWithCleanDB(t *testing.T) {
 	}, http.StatusForbidden)
 
 	e2eInsertActiveCoachAssignment(t, db, programID, disciple3ID, e2eCoach1)
+	e2eAssertProgramInList(t, r, disciple3Token, programID, "assigned")
+	e2eRequest(t, r, http.MethodDelete, "/api/programs/"+programID, disciple3Token, nil, http.StatusForbidden)
 	selfAssignmentID := e2ePostID(t, r, http.MethodPost, "/api/programs/"+selfProgramID+"/self-assignment", disciple3Token, gin.H{"start_date": "2026-06-29"}, http.StatusCreated)
 	e2eAssertSelfAssignmentState(t, db, disciple3ID, selfProgramID, true)
 	e2eAssertActiveSelfAssignmentCount(t, db, disciple3ID, 1)
@@ -498,6 +527,24 @@ func e2eCreateProgram(t *testing.T, r http.Handler, token, title string) string 
 func e2eCreateSelfTrainingProgram(t *testing.T, r http.Handler, token, title string) string {
 	t.Helper()
 	return e2ePostID(t, r, http.MethodPost, "/api/programs", token, gin.H{"title": title, "kind": "self_training"}, http.StatusCreated)
+}
+
+func e2eAssertProgramInList(t *testing.T, r http.Handler, token, programID, source string) {
+	t.Helper()
+	resp := e2eRequest(t, r, http.MethodGet, "/api/programs", token, nil, http.StatusOK)
+	var out struct {
+		Items []struct {
+			ID     string `json:"id"`
+			Source string `json:"source"`
+		} `json:"items"`
+	}
+	e2eDecode(t, resp, &out)
+	for _, item := range out.Items {
+		if item.ID == programID && item.Source == source {
+			return
+		}
+	}
+	t.Fatalf("program list did not include id=%s source=%s: %#v", programID, source, out.Items)
 }
 
 func e2eAssertActiveAssignment(t *testing.T, r http.Handler, token, assignmentID string) {

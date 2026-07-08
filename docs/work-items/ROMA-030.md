@@ -1,6 +1,6 @@
 # ROMA-030 - Coach puede usar entrenamiento personal
 
-Estado: Planned
+Estado: Done
 Tipo: feature
 Fecha: 2026-07-04
 Autor: Codex
@@ -59,3 +59,17 @@ ROMA-028 detecto durante la demo local que el maestro tambien puede entrenarse a
 ## Resultado esperado del agente
 
 Implementar solo este WI, validar backend/frontend/E2E segun cambios, actualizar tracking y no hacer commit automaticamente.
+
+## Resultado
+
+- Backend permite que usuarios `coach` creen y muten programas `self_training` propios, manteniendo `coach_program` para programas de alumnos.
+- Backend permite check-ins personales para coach usando los endpoints personales `/api/checkins`.
+- Entrenar, Mis rutinas, Historial personal y Check-ins quedan accesibles para coach desde la UI.
+- Mis rutinas del coach permite crear una rutina personal o un programa para alumnos sin perder capacidades de coach.
+- E2E cubre check-in personal del coach y flujo self-training personal del coach con activacion, sesion, set e historial.
+
+## Validado
+
+- `cd backend && GOCACHE=/tmp/roma-go-cache go test ./...`
+- `cd backend && ROMA_E2E_DB_URL='postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable' GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`
+- `cd frontend/roma-web && npm run build`

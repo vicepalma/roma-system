@@ -140,6 +140,18 @@ func TestProgramPermissions(t *testing.T) {
 	}
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT role FROM "users"`)).
+		WithArgs("coach-1").
+		WillReturnRows(sqlmock.NewRows([]string{"role"}).AddRow("coach"))
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/programs", bytes.NewReader([]byte(`{"title":"Coach Personal","kind":"self_training"}`)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Test-User", "coach")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("coach create self-training status=%d body=%s", w.Code, w.Body.String())
+	}
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT role FROM "users"`)).
 		WithArgs("coach-2").
 		WillReturnRows(sqlmock.NewRows([]string{"role"}).AddRow("coach"))
 	mock.ExpectQuery(`SELECT count\(\*\) FROM "programs"`).

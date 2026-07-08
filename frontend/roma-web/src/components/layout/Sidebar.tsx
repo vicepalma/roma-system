@@ -31,20 +31,25 @@ export default function Sidebar() {
     <aside className="hidden md:block w-60 shrink-0 border-r bg-white dark:bg-neutral-900 dark:border-neutral-800">
       <div className="p-4 text-sm font-semibold">ROMA System</div>
       <nav className="px-3 space-y-1">
-        {role === 'disciple' ? (
+        {role === 'coach' && (
           <>
+            <NavLink to="/dashboard" className={link}>Dashboard</NavLink>
+            <NavLink to="/assignments" className={link}>Asignaciones</NavLink>
+          </>
+        )}
+        {(role === 'disciple' || role === 'coach') && (
+          <>
+            {role === 'coach' && <div className="px-3 pt-3 pb-1 text-xs font-medium text-gray-500 dark:text-neutral-400">Personal</div>}
             <NavLink to="/sessions" className={link}>Entrenar</NavLink>
             <NavLink to="/programs" className={link}>Mis rutinas</NavLink>
             <NavLink to="/exercises" className={link}>Ejercicios</NavLink>
             <NavLink to="/history" className={link}>Historial</NavLink>
             <NavLink to="/checkins" className={link}>Check-ins</NavLink>
           </>
-        ) : (
+        )}
+        {role !== 'disciple' && role !== 'coach' && (
           <>
-            {role === 'coach' && <NavLink to="/dashboard" className={link}>Dashboard</NavLink>}
-            {role === 'coach' && <NavLink to="/assignments" className={link}>Asignaciones</NavLink>}
             <NavLink to="/exercises" className={link}>Ejercicios</NavLink>
-            {role === 'coach' && <NavLink to="/programs" className={link}>Programas</NavLink>}
             <NavLink to="/history" className={link}>Historial</NavLink>
           </>
         )}

@@ -2,9 +2,9 @@
 
 ## Estado actual
 - Fase actual: post MVP inicial / ajustes detectados en demo local.
-- Objetivo actual: habilitar entrenamiento personal para coach como primer ajuste funcional post demo.
-- Ultimo checkpoint completado: ROMA-029 / CHK-029 - Registrar hallazgos demo y ajustar roadmap.
-- Proximo checkpoint sugerido: ROMA-030 - Coach puede usar entrenamiento personal.
+- Objetivo actual: disenar biblioteca de rutinas antes de implementarla.
+- Ultimo checkpoint completado: ROMA-031 / CHK-031 - Mis rutinas: asignadas, propias e importadas.
+- Proximo checkpoint sugerido: ROMA-032 - Diseno biblioteca de rutinas.
 
 ## Decisiones activas
 - [2026-06-24] Decision: no partir desde cero; rescatar repo con estabilizacion previa.
@@ -246,6 +246,20 @@ Objetivo: dejar creados los Work Items ejecutables de la fase posterior al MVP i
 Resultado: creados `docs/work-items/ROMA-030.md`, `docs/work-items/ROMA-031.md`, `docs/work-items/ROMA-032.md` y `docs/work-items/ROMA-033.md` usando la plantilla de Work Items. No se cambiaron backend, frontend ni migraciones.
 Validado: `git status --short`; `git diff --check`.
 Proximo sugerido: ROMA-030.
+
+### ROMA-030 / CHK-030 - Coach puede usar entrenamiento personal
+Estado: Done
+Objetivo: permitir que un coach use Entrenar, Mis rutinas, Historial personal y Check-ins personales, sin dejar de ser coach.
+Resultado: backend permite self-training y check-ins personales para coach; UI muestra Entrenar, Mis rutinas, Historial y Check-ins para coach; Mis rutinas del coach permite crear rutina personal o programa para alumnos; E2E cubre check-in personal y flujo self-training personal del coach.
+Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL='postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable' GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
+Proximo sugerido: ROMA-031.
+
+### ROMA-031 / CHK-031 - Mis rutinas: asignadas, propias e importadas
+Estado: Done
+Objetivo: ordenar Mis rutinas para mostrar rutinas asignadas por maestro, rutinas propias y rutinas importadas, con permisos claros.
+Resultado: `/api/programs` incluye programas propios y rutinas asignadas al usuario con metadata de origen/permisos; Mis rutinas agrupa asignadas por maestro, propias/programas e importadas; rutinas asignadas son visibles pero no editables/eliminables desde la seccion personal; E2E cubre visibilidad y bloqueo de eliminacion.
+Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL='postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable' GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
+Proximo sugerido: ROMA-032.
 
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.

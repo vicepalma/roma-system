@@ -101,7 +101,7 @@ func IsProgramMutable(db *gorm.DB, actorID, programID string) (bool, error) {
 	switch role {
 	case "coach":
 		err = db.Table("programs").
-			Where("id = ? AND owner_id = ? AND kind = 'coach_program'", programID, actorID).
+			Where("id = ? AND owner_id = ? AND kind IN ('coach_program', 'self_training')", programID, actorID).
 			Count(&count).Error
 	case "disciple":
 		err = db.Table("programs").

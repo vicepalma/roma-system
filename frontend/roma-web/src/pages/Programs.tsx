@@ -20,6 +20,8 @@ export default function Programs() {
   const qc = useQueryClient()
   const role = useAuth(s => s.user?.role)
   const isDisciple = role === 'disciple'
+  const isCoach = role === 'coach'
+  const canUsePersonalTraining = role === 'disciple' || role === 'coach'
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null)
   const [editingProgram, setEditingProgram] = useState<Program | null>(null)
   const [selectedWeek, setSelectedWeek] = useState<ProgramWeek | null>(null)
@@ -36,7 +38,7 @@ export default function Programs() {
   const activeAssignQ = useQuery({
     queryKey: ['me', 'assignment', 'active'],
     queryFn: getMyActiveAssignment,
-    enabled: isDisciple,
+    enabled: canUsePersonalTraining,
     retry: false,
     staleTime: 30_000,
   })
@@ -91,7 +93,7 @@ export default function Programs() {
     onSuccess: async (p) => {
       await qc.invalidateQueries({ queryKey: ['programs', 'mine'] })
       setSelectedProgram(p)
-      show({ type: 'success', message: isDisciple ? 'Rutina creada' : 'Programa creado' })
+      show({ type: 'success', message: p.kind === 'coach_program' ? 'Programa creado' : 'Rutina creada' })
       setOpenNewProgram(false)
       await qc.invalidateQueries({ queryKey: ['programs'], exact: false, refetchType: 'active' })
     },
@@ -109,9 +111,9 @@ export default function Programs() {
       await qc.invalidateQueries({ queryKey: ['programs', updated.id, 'active-summary'] })
       await qc.invalidateQueries({ queryKey: ['me', 'assignment', 'active'] })
       await qc.invalidateQueries({ queryKey: ['assignment'], exact: false })
-      show({ type: 'success', message: isDisciple ? 'Rutina actualizada' : 'Programa actualizado' })
+      show({ type: 'success', message: updated.kind === 'coach_program' ? 'Programa actualizado' : 'Rutina actualizada' })
     },
-    onError: () => show({ type: 'error', message: isDisciple ? 'No se pudo actualizar la rutina' : 'No se pudo actualizar el programa' }),
+    onError: () => show({ type: 'error', message: canUsePersonalTraining ? 'No se pudo actualizar la rutina' : 'No se pudo actualizar el programa' }),
   })
 
   const selfAssignM = useMutation({
@@ -234,6 +236,80 @@ export default function Programs() {
   const weeks = weeksQ.data ?? []
   const days = daysQ.data ?? []
   const presc = prescQ.data ?? []
+  const listedPrograms = programsQ.data ?? []
+  const assignedPrograms = listedPrograms.filter(p => p.source === 'assigned')
+  const importedPrograms = listedPrograms.filter(p => p.source === 'imported')
+  const ownPrograms = listedPrograms.filter(p => p.source !== 'assigned' && p.source !== 'imported')
+  const selectedCanEdit = selectedProgram?.can_edit ?? true
+  const selectedCanActivate = selectedProgram?.can_activate ?? selectedProgram?.kind === 'self_training'
+
+  function selectProgram(p: Program) {
+    setSelectedProgram(p)
+    setSelectedWeek(null)
+    setSelectedDay(null)
+  }
+
+  function renderProgramSection(title: string, empty: string, items: Program[]) {
+    return (
+      <section className="space-y-1">
+        <div className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-neutral-400">{title}</div>
+        {items.length === 0 ? (
+          <div className="rounded border border-dashed px-2 py-2 text-xs text-gray-500 dark:border-neutral-800">{empty}</div>
+        ) : (
+          <ul className="space-y-1">
+            {items.map(p => {
+              const canEditProgram = p.can_edit ?? (isCoach || !canUsePersonalTraining || p.kind === 'self_training')
+              const canDeleteProgram = p.can_delete ?? canEditProgram
+              return (
+                <li key={`${p.source ?? 'program'}-${p.assignment_id ?? p.id}`}>
+                  <div className="flex items-center justify-between gap-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800">
+                    <button
+                      onClick={() => selectProgram(p)}
+                      className={`min-w-0 flex-1 text-left rounded px-2 py-1 text-sm ${selectedProgram?.id === p.id
+                        ? 'bg-black text-white'
+                        : 'hover:bg-gray-100 dark:hover:bg-neutral-800'
+                        }`}
+                    >
+                      <span className="block truncate">{p.title}</span>
+                      <span className="mt-0.5 flex flex-wrap gap-1 text-[11px] opacity-80">
+                        {canUsePersonalTraining && activeAssignQ.data?.program_id === p.id && <span className="rounded border px-1 py-0.5">Activa</span>}
+                        {p.source === 'assigned' && <span className="rounded border px-1 py-0.5">Asignada</span>}
+                        {p.source === 'imported' && <span className="rounded border px-1 py-0.5">Importada</span>}
+                      </span>
+                    </button>
+
+                    <div className="flex shrink-0 items-center gap-1">
+                      {canEditProgram && (
+                        <button
+                          onClick={() => setEditingProgram(p)}
+                          className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+                        >
+                          Editar
+                        </button>
+                      )}
+                      {canDeleteProgram && (
+                        <button
+                          onClick={() => {
+                            if (confirm('¿Eliminar este programa? Esta acción no se puede deshacer.')) {
+                              delProgramM.mutate(p.id)
+                            }
+                          }}
+                          disabled={delProgramM.isPending}
+                          className="text-xs rounded px-2 py-1 border text-red-600 bg-white hover:bg-red-50 active:bg-red-100 dark:bg-neutral-900 dark:border-neutral-800 transition-colors duration-150"
+                        >
+                          Eliminar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
+    )
+  }
 
   // Próximos índices sugeridos
   const nextWeekIndex = useMemo(() => (weeks.length ? Math.max(...weeks.map(w => w.week_index)) + 1 : 1), [weeks])
@@ -249,7 +325,7 @@ export default function Programs() {
       {/* Columna izquierda: Programas */}
       <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="font-semibold">{isDisciple ? 'Mis rutinas' : 'Programas'}</div>
+          <div className="font-semibold">{isCoach ? 'Mis rutinas y programas' : canUsePersonalTraining ? 'Mis rutinas' : 'Programas'}</div>
           <button
             onClick={() => setOpenNewProgram(true)}
             className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
@@ -261,62 +337,13 @@ export default function Programs() {
         {programsQ.isLoading && <div className="h-24 bg-gray-100 dark:bg-neutral-800 rounded" />}
         {programsQ.isError && <div className="text-red-600 text-sm">Error al cargar programas</div>}
 
-        <ul className="space-y-1">
-          {(programsQ.data ?? []).map(p => {
-            const canEditProgram = !isDisciple || p.kind === 'self_training'
-            return (
-            <li key={p.id}>
-              <div className="flex items-center justify-between hover:bg-gray-300 rounded-lg">
-                <button
-                  onClick={() => {
-                    setSelectedProgram(p)
-                    setSelectedWeek(null)
-                    setSelectedDay(null)
-                  }}
-                  className={`text-left rounded px-2 py-1 text-sm ${selectedProgram?.id === p.id
-                    ? 'bg-black text-white'
-                    : 'hover:bg-gray-100 dark:hover:bg-neutral-800'
-                    }`}
-                >
-                  {p.title}
-                  {isDisciple && activeAssignQ.data?.program_id === p.id && (
-                    <span className="ml-2 text-[11px] rounded border px-1 py-0.5">Activa</span>
-                  )}
-                </button>
-
-                <div className="flex items-center gap-1">
-                  {canEditProgram && (
-                    <button
-                      onClick={() => setEditingProgram(p)}
-                      className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
-                    >
-                      Editar
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      if (confirm('¿Eliminar este programa? Esta acción no se puede deshacer.')) {
-                        delProgramM.mutate(p.id)
-                      }
-                    }}
-                    disabled={delProgramM.isPending}
-                    className="text-xs rounded px-2 py-1 border text-red-600 bg-white 
-hover:bg-red-50 active:bg-red-100 
-dark:bg-neutral-900 dark:border-neutral-800 
-transition-colors duration-150"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </div>
-            </li>
-            )
-          })}
-
-          {!programsQ.isLoading && (programsQ.data ?? []).length === 0 && (
-            <li className="text-xs text-gray-500">{isDisciple ? 'Sin rutinas' : 'Sin programas'}</li>
-          )}
-        </ul>
+        {!programsQ.isLoading && !programsQ.isError && (
+          <div className="space-y-4">
+            {renderProgramSection('Asignadas por maestro', 'No tienes rutinas asignadas por maestro.', assignedPrograms)}
+            {renderProgramSection(isCoach ? 'Propias y programas de alumnos' : 'Propias', isCoach ? 'Sin rutinas propias ni programas de alumnos.' : 'Sin rutinas propias.', ownPrograms)}
+            {renderProgramSection('Importadas', 'Aun no tienes rutinas importadas.', importedPrograms)}
+          </div>
+        )}
 
       </div>
 
@@ -327,7 +354,7 @@ transition-colors duration-150"
           <div className="flex items-center justify-between">
             <div className="font-semibold">Semanas {selectedProgram ? `— ${selectedProgram.title}` : ''}</div>
             <div className="flex items-center gap-2">
-            {selectedProgram && isDisciple && selectedProgram.kind === 'self_training' && (
+            {selectedProgram && canUsePersonalTraining && selectedCanActivate && selectedProgram.kind === 'self_training' && (
               <button
                 onClick={() => selfAssignM.mutate(selectedProgram.id)}
                 disabled={selfAssignM.isPending}
@@ -336,7 +363,7 @@ transition-colors duration-150"
                 {activeAssignQ.data?.program_id === selectedProgram.id ? 'Rutina activa' : (selfAssignM.isPending ? 'Activando…' : 'Activar rutina')}
               </button>
             )}
-            {selectedProgram && (
+            {selectedProgram && selectedCanEdit && (
               <button
                 onClick={() => setOpenNewWeek(true)}
                 className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
@@ -347,7 +374,7 @@ transition-colors duration-150"
             </div>
           </div>
 
-          {!selectedProgram && <div className="text-sm text-gray-500">{isDisciple ? 'Selecciona o crea una rutina' : 'Selecciona o crea un programa'}</div>}
+          {!selectedProgram && <div className="text-sm text-gray-500">{isCoach ? 'Selecciona o crea una rutina personal o programa' : canUsePersonalTraining ? 'Selecciona o crea una rutina' : 'Selecciona o crea un programa'}</div>}
           {selectedProgram && weeksQ.isLoading && <div className="h-16 bg-gray-100 dark:bg-neutral-800 rounded" />}
           {selectedProgram && weeksQ.isError && <div className="text-red-600 text-sm">Error al cargar semanas</div>}
 
@@ -355,6 +382,7 @@ transition-colors duration-150"
             <div className="flex flex-wrap gap-2 mt-2">
               {weeks.map((w) => (
                 <div key={w.id} className="inline-flex items-center">
+                  {selectedCanEdit && (
                   <button
                     onClick={() => { setSelectedWeek(w); setSelectedDay(null) }}
                     className={clsx(
@@ -366,6 +394,7 @@ transition-colors duration-150"
                   >
                     Semana {w.week_index}{w.title ? ` — ${w.title}` : ''}
                   </button>
+                  )}
 
                   <button
                     onClick={() => {
@@ -395,7 +424,7 @@ transition-colors duration-150"
             <div className="font-semibold">
               Días {selectedWeek ? `— Semana ${selectedWeek.week_index}` : ''}
             </div>
-            {selectedWeek && (
+            {selectedWeek && selectedCanEdit && (
               <button
                 onClick={() => setOpenNewDay(true)}
                 className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
@@ -420,6 +449,7 @@ transition-colors duration-150"
                 return (
                   <li key={d.id} className="rounded border px-3 py-2 dark:border-neutral-800">
                     <div className="flex items-center justify-between">
+                      {selectedCanEdit && (
                       <button
                         onClick={() => setSelectedDay(d)}
                         className={[
@@ -431,6 +461,7 @@ transition-colors duration-150"
                       >
                         Día {d.day_index}
                       </button>
+                      )}
 
                       <button
                         onClick={() => delDayM.mutate({
@@ -463,7 +494,7 @@ transition-colors duration-150"
 <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
   <div className="flex items-center justify-between">
     <div className="font-semibold">Prescripciones {selectedDay ? `— Día ${selectedDay.day_index}` : ''}</div>
-    {selectedDay && (
+    {selectedDay && selectedCanEdit && (
       <button
         onClick={() => setOpenNewPresc(true)}
         className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
@@ -510,12 +541,14 @@ transition-colors duration-150"
           </div>
         </div>
 
+        {selectedCanEdit && (
         <button
           onClick={() => delPrescM.mutate(p.id)}
           className="text-xs text-red-600 rounded px-2 py-0.5 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
         >
           Eliminar
         </button>
+        )}
       </div>
 
       <div className="text-xs text-gray-700 dark:text-neutral-200 mt-2">
@@ -550,7 +583,7 @@ transition-colors duration-150"
       </div>
 
       {/* Modales */}
-      <Modal open={openNewProgram} onClose={() => setOpenNewProgram(false)} title={isDisciple ? 'Nueva rutina' : 'Nuevo programa'}>
+      <Modal open={openNewProgram} onClose={() => setOpenNewProgram(false)} title={isCoach ? 'Nueva rutina o programa' : canUsePersonalTraining ? 'Nueva rutina' : 'Nuevo programa'}>
         <form
           className="space-y-3"
           onSubmit={(e) => {
@@ -559,10 +592,19 @@ transition-colors duration-150"
             createProgramM.mutate({
               title: String(fd.get('title') || ''),
               notes: String(fd.get('description') || '') || null,
-              kind: isDisciple ? 'self_training' : 'coach_program',
+              kind: isCoach ? (String(fd.get('kind') || 'self_training') as 'coach_program' | 'self_training') : canUsePersonalTraining ? 'self_training' : 'coach_program',
             })
           }}
         >
+          {isCoach && (
+            <label className="text-sm block">
+              <div className="mb-1">Tipo</div>
+              <select name="kind" defaultValue="self_training" className="w-full border rounded px-2 py-1 text-sm dark:bg-neutral-900 dark:border-neutral-800">
+                <option value="self_training">Rutina personal</option>
+                <option value="coach_program">Programa para alumnos</option>
+              </select>
+            </label>
+          )}
           <label className="text-sm block">
             <div className="mb-1">Título *</div>
             <input name="title" required className="w-full border rounded px-2 py-1 text-sm dark:bg-neutral-900 dark:border-neutral-800" />
@@ -582,7 +624,7 @@ transition-colors duration-150"
         </form>
       </Modal>
 
-      <Modal open={!!editingProgram} onClose={() => setEditingProgram(null)} title={isDisciple ? 'Editar rutina' : 'Editar programa'}>
+      <Modal open={!!editingProgram} onClose={() => setEditingProgram(null)} title={editingProgram?.kind === 'coach_program' ? 'Editar programa' : canUsePersonalTraining ? 'Editar rutina' : 'Editar programa'}>
         {editingProgram && (
           <form
             className="space-y-3"

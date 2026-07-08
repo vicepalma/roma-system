@@ -1,6 +1,6 @@
 # ROMA-031 - Mis rutinas: asignadas, propias e importadas
 
-Estado: Planned
+Estado: Done
 Tipo: feature
 Fecha: 2026-07-04
 Autor: Codex
@@ -57,3 +57,18 @@ ROMA-028 detecto que el disciple debe poder ver rutinas asignadas por maestro en
 ## Resultado esperado del agente
 
 Implementar solo este WI, validar segun archivos tocados, actualizar tracking y no hacer commit automaticamente.
+
+## Resultado
+
+- `/api/programs` ahora devuelve rutinas/programas propios y rutinas asignadas al usuario autenticado.
+- El contrato agrega metadata de origen y permisos: `source`, `assignment_id`, `assigned_by`, `is_active`, `can_edit`, `can_delete` y `can_activate`.
+- Mis rutinas separa visualmente rutinas asignadas por maestro, propias/programas e importadas.
+- Las rutinas asignadas por maestro son visibles, pero no muestran acciones de edicion, eliminacion ni cambios de estructura.
+- Las rutinas propias y futuras importadas conservan acciones segun los permisos entregados por backend.
+- E2E cubre que una rutina asignada aparece en Mis rutinas con `source=assigned` y no puede eliminarse desde el disciple.
+
+## Validado
+
+- `cd backend && GOCACHE=/tmp/roma-go-cache go test ./...`
+- `cd backend && ROMA_E2E_DB_URL='postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable' GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`
+- `cd frontend/roma-web && npm run build`

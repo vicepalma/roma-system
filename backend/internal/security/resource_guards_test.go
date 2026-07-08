@@ -116,10 +116,10 @@ func TestSelfTrainingProgramMutability(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"role"}).AddRow("coach"))
 	mock.ExpectQuery(`SELECT count\(\*\) FROM "programs"`).
 		WithArgs("program-1", "coach-1").
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	ok, err = IsProgramMutable(db, "coach-1", "program-1")
-	if err != nil || ok {
-		t.Fatalf("foreign coach self-training mutable ok=%v err=%v", ok, err)
+	if err != nil || !ok {
+		t.Fatalf("coach own personal training mutable ok=%v err=%v", ok, err)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {

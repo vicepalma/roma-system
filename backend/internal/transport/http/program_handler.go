@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strconv"
@@ -27,6 +28,25 @@ type addPrescriptionReq struct {
 type ProgramHandler struct {
 	svc service.ProgramService
 	db  *gorm.DB
+}
+
+type programListItem struct {
+	ID           string    `json:"id"`
+	OwnerID      string    `json:"owner_id"`
+	Title        string    `json:"title"`
+	Notes        *string   `json:"notes,omitempty"`
+	Visibility   string    `json:"visibility"`
+	Kind         string    `json:"kind"`
+	Version      int       `json:"version"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	Source       string    `json:"source"`
+	AssignmentID *string   `json:"assignment_id,omitempty"`
+	AssignedBy   *string   `json:"assigned_by,omitempty"`
+	IsActive     *bool     `json:"is_active,omitempty"`
+	CanEdit      bool      `json:"can_edit"`
+	CanDelete    bool      `json:"can_delete"`
+	CanActivate  bool      `json:"can_activate"`
 }
 
 func NewProgramHandler(s service.ProgramService, db *gorm.DB) *ProgramHandler {
@@ -121,7 +141,7 @@ func (h *ProgramHandler) createProgram(c *gin.Context) {
 	}
 	switch role {
 	case "coach":
-		if kind != "coach_program" {
+		if kind != "coach_program" && kind != "self_training" {
 			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 			return
 		}
@@ -188,12 +208,88 @@ func (h *ProgramHandler) createSelfAssignment(c *gin.Context) {
 func (h *ProgramHandler) listMine(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
-	items, total, err := h.svc.ListMyPrograms(c, userID(c), limit, offset)
+	items, total, err := h.listProgramsForUser(c.Request.Context(), userID(c), limit, offset)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "db_error"})
 		return
 	}
 	c.JSON(200, gin.H{"items": items, "total": total, "limit": limit, "offset": offset})
+}
+
+func (h *ProgramHandler) listProgramsForUser(ctx context.Context, actorID string, limit, offset int) ([]programListItem, int64, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	var owned []programListItem
+	if err := h.db.WithContext(ctx).Raw(`
+		SELECT
+			p.id,
+			p.owner_id,
+			p.title,
+			p.notes,
+			p.visibility,
+			p.kind,
+			p.version,
+			p.created_at,
+			p.updated_at,
+			CASE
+				WHEN p.kind = 'self_training' THEN 'own'
+				ELSE 'coach_program'
+			END AS source,
+			NULL::uuid AS assignment_id,
+			NULL::uuid AS assigned_by,
+			NULL::boolean AS is_active,
+			TRUE AS can_edit,
+			TRUE AS can_delete,
+			(p.kind = 'self_training') AS can_activate
+		FROM programs p
+		WHERE p.owner_id = ?
+	`, actorID).Scan(&owned).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var assigned []programListItem
+	if err := h.db.WithContext(ctx).Raw(`
+		SELECT DISTINCT ON (p.id)
+			p.id,
+			p.owner_id,
+			p.title,
+			p.notes,
+			p.visibility,
+			p.kind,
+			p.version,
+			p.created_at,
+			p.updated_at,
+			'assigned' AS source,
+			a.id AS assignment_id,
+			a.assigned_by,
+			a.is_active,
+			FALSE AS can_edit,
+			FALSE AS can_delete,
+			FALSE AS can_activate
+		FROM assignments a
+		JOIN programs p ON p.id = a.program_id
+		WHERE a.disciple_id = ?
+		  AND a.assigned_by <> ?
+		  AND p.kind = 'coach_program'
+		ORDER BY p.id, a.is_active DESC, a.start_date DESC, a.created_at DESC
+	`, actorID, actorID).Scan(&assigned).Error; err != nil {
+		return nil, 0, err
+	}
+
+	items := append(owned, assigned...)
+	total := int64(len(items))
+	if offset >= len(items) {
+		return []programListItem{}, total, nil
+	}
+	end := offset + limit
+	if end > len(items) {
+		end = len(items)
+	}
+	return items[offset:end], total, nil
 }
 
 func (h *ProgramHandler) addWeek(c *gin.Context) {

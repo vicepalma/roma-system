@@ -24,10 +24,10 @@ func NewCheckinHandler(svc service.CheckinService, db *gorm.DB) *CheckinHandler 
 }
 
 func (h *CheckinHandler) Register(r *gin.RouterGroup) {
-	r.POST("/checkins", security.RequireRole(h.db, "disciple"), h.create)
-	r.GET("/checkins", security.RequireRole(h.db, "disciple"), h.listMine)
+	r.POST("/checkins", h.create)
+	r.GET("/checkins", h.listMine)
 	r.GET("/checkins/:id", h.get)
-	r.PATCH("/checkins/:id", security.RequireRole(h.db, "disciple"), h.updateOwn)
+	r.PATCH("/checkins/:id", h.updateOwn)
 	r.GET("/coach/disciples/:id/checkins", security.RequireRole(h.db, "coach"), h.listForCoach)
 }
 

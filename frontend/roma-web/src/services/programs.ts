@@ -9,6 +9,13 @@ export type Program = {
   version?: number
   created_at?: string
   updated_at?: string
+  source?: 'own' | 'assigned' | 'imported' | 'coach_program'
+  assignment_id?: string | null
+  assigned_by?: string | null
+  is_active?: boolean | null
+  can_edit?: boolean
+  can_delete?: boolean
+  can_activate?: boolean
 }
 
 export type ProgramWeek = {
