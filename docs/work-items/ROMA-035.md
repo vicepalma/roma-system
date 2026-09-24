@@ -1,6 +1,6 @@
 # ROMA-035 — Responsive base + navegación
 
-Estado: Planned
+Estado: Done
 Tipo: feature
 Fecha: 2026-09-24
 Autor: Codex
@@ -54,3 +54,15 @@ ROMA-034 congeló los criterios mobile de v1. Este WI adapta el shell compartido
 ## Resultado esperado del agente
 
 Implementar solo el shell responsive, validar build/prueba manual, actualizar tracking y no hacer commit automáticamente.
+
+## Resultado
+
+- Se agregó navegación móvil mediante menú lateral con overlay y cierre al navegar.
+- Se adaptaron header, contenedor principal y controles de theme/logout para toque.
+- Se evitó overflow horizontal accidental en el shell.
+- Se preservó el sidebar y layout desktop.
+
+## Validado
+
+- `cd frontend/roma-web && npm run build`
+- `git diff --check`
