@@ -2,7 +2,7 @@
 
 ## Estado actual
 - Fase actual: cierre de Roma v1 / V1 Freeze Plan definido.
-- Objetivo actual: completar biblioteca de rutinas, responsive mobile basico y hardening final.
+- Objetivo actual: ejecutar el cierre mobile y hardening final bajo alcance congelado.
 - Ultimo checkpoint completado: ROMA-033 / CHK-033 - Biblioteca de rutinas MVP.
 - Proximo checkpoint sugerido: ROMA-034 - Freeze v1 y criterios mobile.
 
@@ -16,6 +16,7 @@
 - [2026-09-24] Decision: Roma v1 debe ser usable en telefonos mediante responsive mobile basico; app nativa y PWA avanzada quedan fuera.
 - [2026-09-24] Decision: el V1 Freeze Plan queda limitado a ROMA-032 a ROMA-038.
 - [2026-09-24] Decision: desde ROMA-034 no entra ninguna feature nueva salvo bug critico o bloqueante; el resto va a backlog post-v1.
+- [2026-09-24] Decision: los viewports de aceptación mobile son 360, 390 y 430 px, además de desktop.
 
 ## V1 Freeze Plan
 - ROMA-032 - Diseno biblioteca de rutinas.
@@ -293,3 +294,11 @@ Objetivo: permitir descubrir, publicar e importar rutinas como copias personales
 Resultado: se agregaron tablas de plantillas y estructura propia mediante migracion `0008`, endpoints autenticados para listar/previsualizar/crear/publicar/importar, copia transaccional a `programs` y UI minima de Biblioteca. Coach puede crear/publicar y disciple puede importar plantillas publicadas.
 Validado: `cd backend && GOCACHE=/tmp/roma-go-cache go test ./...`; E2E/API con `ROMA_E2E_DB_URL` y `-run E2E -count=1`; `cd frontend/roma-web && npm run build`; `git diff --check`.
 Proximo sugerido: ROMA-034.
+
+
+### ROMA-034 / CHK-034 - Freeze v1 + criterios mobile
+Estado: Done
+Objetivo: congelar el alcance de Roma v1 y definir criterios verificables de aceptación mobile.
+Resultado: se fijaron viewports 360/390/430 px y desktop, flujos críticos de disciple/independent y coach, criterios de navegación, formularios, cards, overflow y acciones principales. Desde este checkpoint solo entran bugs críticos o bloqueantes; app nativa, PWA avanzada y nuevas features quedan fuera. No se modificaron backend ni frontend.
+Validado: `git status --short`; `git diff --check`.
+Proximo sugerido: ROMA-035.

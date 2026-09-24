@@ -73,6 +73,16 @@ Roma v1 entra en fase de cierre. La biblioteca de rutinas y el responsive mobile
 
 Desde ROMA-034 no entra ninguna feature nueva salvo un bug critico o bloqueante. Cualquier otra idea debe registrarse para backlog post-v1.
 
+## Criterios Mobile Del Freeze
+
+- Viewports objetivo: 360, 390 y 430 px, además de desktop.
+- Navegación completa sin depender del sidebar oculto en móvil.
+- Formularios y acciones principales utilizables con toque, con estados loading/error/success claros.
+- Cards y listas apilables, sin cortes críticos ni solapamiento de acciones.
+- Tablas o contenido ancho con adaptación o overflow horizontal controlado.
+- Sin overflow horizontal accidental en los flujos críticos.
+
+
 ## Criterio De Cierre V1
 
 - ROMA-032 disena la biblioteca de rutinas antes de implementarla.
