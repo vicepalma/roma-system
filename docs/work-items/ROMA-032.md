@@ -1,8 +1,8 @@
 # ROMA-032 - Diseno biblioteca de rutinas
 
-Estado: Planned
+Estado: Done
 Tipo: docs
-Fecha: 2026-07-04
+Fecha: 2026-09-24
 Autor: Codex
 
 ## Objetivo
@@ -57,3 +57,16 @@ No es obligatorio correr tests automatizados porque este WI es de documentacion/
 ## Resultado esperado del agente
 
 Documentar el diseno, actualizar tracking y no implementar cambios funcionales.
+
+## Resultado
+
+- Se cerro el modelo de producto y tecnico minimo para la biblioteca v1.
+- Se definieron plantillas globales `draft`/`published`, ownership y permisos de coach/admin.
+- Se definio la importacion como copia profunda independiente hacia un `program` propio.
+- Se definio que assignments solo se crean sobre programas concretos, nunca sobre plantillas.
+- Se acoto ROMA-033 a listado, previsualizacion, publicacion controlada, importacion y pruebas de ownership.
+- No se implementaron backend, frontend ni migraciones.
+
+## Validado
+
+- `git diff --check`

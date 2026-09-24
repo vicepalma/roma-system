@@ -10,6 +10,8 @@ No es una comunidad, red social ni sistema de simpatizantes.
 
 El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con migraciones, Docker Compose, roles `coach` / `disciple`, guards de ownership, tests unitarios backend, E2E/API con DB real, self-training minimo, sesiones activas/cerradas, historial con filtros, check-ins basicos y vista coach de progreso del disciple.
 
+Roma v1 entra en fase de cierre. La biblioteca de rutinas y el responsive mobile basico para los flujos principales forman parte obligatoria de v1.
+
 ## Completado
 
 - ROMA-001 - Auditoria inicial.
@@ -55,21 +57,29 @@ El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con 
 
 ## Proximo Work Item Recomendado
 
+- ROMA-033 - Biblioteca de rutinas MVP.
+
+## V1 Freeze Plan
+
 - ROMA-032 - Diseno biblioteca de rutinas.
+- ROMA-033 - Biblioteca de rutinas MVP.
+- ROMA-034 - Freeze v1 y criterios mobile.
+- ROMA-035 - Responsive base y navegacion.
+- ROMA-036 - Responsive flujos disciple/independent.
+- ROMA-037 - Responsive flujos coach.
+- ROMA-038 - Hardening, regresion y cierre v1.
 
-## Proximos despues del MVP inicial
+Desde ROMA-034 no entra ninguna feature nueva salvo un bug critico o bloqueante. Cualquier otra idea debe registrarse para backlog post-v1.
 
-- ROMA-032 - Diseno biblioteca de rutinas.
-- ROMA-033 - Implementar biblioteca de rutinas MVP.
-- ROMA-0XX - Archivar o eliminar check-ins propios, si se decide.
+## Criterio De Cierre V1
 
-## Criterio Siguiente Fase
-
-- ROMA-029 documenta hallazgos de demo y ordena proximos pasos.
-- ROMA-030 permite que un coach tambien use flujo personal de entrenamiento.
-- ROMA-031 ordena "Mis rutinas" distinguiendo asignadas por maestro, propias e importadas.
 - ROMA-032 disena la biblioteca de rutinas antes de implementarla.
 - ROMA-033 implementa el MVP de biblioteca de rutinas.
+- ROMA-034 congela el alcance y define criterios mobile verificables.
+- ROMA-035 deja navegacion y layout base utilizables en telefono.
+- ROMA-036 adapta los flujos principales de disciple/independent.
+- ROMA-037 adapta los flujos principales de coach.
+- ROMA-038 ejecuta hardening, regresion y validacion final de v1.
 
 ## Fuera De Alcance Actual
 
@@ -78,3 +88,5 @@ El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con 
 - Fotos, adjuntos o mediciones avanzadas de check-ins.
 - Graficos grandes o reporting avanzado.
 - Features grandes mezcladas con bugfixes.
+- App nativa o PWA avanzada.
+- Nuevas features no criticas una vez iniciado ROMA-034.

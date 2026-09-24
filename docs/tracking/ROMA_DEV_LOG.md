@@ -1,10 +1,10 @@
 # ROMA Dev Log
 
 ## Estado actual
-- Fase actual: post MVP inicial / ajustes detectados en demo local.
-- Objetivo actual: disenar biblioteca de rutinas antes de implementarla.
-- Ultimo checkpoint completado: ROMA-031 / CHK-031 - Mis rutinas: asignadas, propias e importadas.
-- Proximo checkpoint sugerido: ROMA-032 - Diseno biblioteca de rutinas.
+- Fase actual: cierre de Roma v1 / V1 Freeze Plan definido.
+- Objetivo actual: completar biblioteca de rutinas, responsive mobile basico y hardening final.
+- Ultimo checkpoint completado: ROMA-032 / CHK-032 - Diseno biblioteca de rutinas.
+- Proximo checkpoint sugerido: ROMA-033 - Biblioteca de rutinas MVP.
 
 ## Decisiones activas
 - [2026-06-24] Decision: no partir desde cero; rescatar repo con estabilizacion previa.
@@ -12,6 +12,19 @@
 - [2026-06-24] Decision: activar `migrator` en Compose para DB limpia reproducible antes de backend.
 - [2026-06-25] Decision: `coach_links` queda como fuente operativa; `master_disciple` queda legacy/compatibilidad.
 - [2026-06-29] Decision: self-training usa `programs.kind='self_training'` y self-assignment propio; no usa self-link en `coach_links`.
+- [2026-09-24] Decision: ROMA-032 y ROMA-033 forman parte de Roma v1.
+- [2026-09-24] Decision: Roma v1 debe ser usable en telefonos mediante responsive mobile basico; app nativa y PWA avanzada quedan fuera.
+- [2026-09-24] Decision: el V1 Freeze Plan queda limitado a ROMA-032 a ROMA-038.
+- [2026-09-24] Decision: desde ROMA-034 no entra ninguna feature nueva salvo bug critico o bloqueante; el resto va a backlog post-v1.
+
+## V1 Freeze Plan
+- ROMA-032 - Diseno biblioteca de rutinas.
+- ROMA-033 - Biblioteca de rutinas MVP.
+- ROMA-034 - Freeze v1 y criterios mobile.
+- ROMA-035 - Responsive base y navegacion.
+- ROMA-036 - Responsive flujos disciple/independent.
+- ROMA-037 - Responsive flujos coach.
+- ROMA-038 - Hardening, regresion y cierre v1.
 
 ## Checkpoints
 ### CHK-001 - Auditoria inicial
@@ -259,7 +272,14 @@ Estado: Done
 Objetivo: ordenar Mis rutinas para mostrar rutinas asignadas por maestro, rutinas propias y rutinas importadas, con permisos claros.
 Resultado: `/api/programs` incluye programas propios y rutinas asignadas al usuario con metadata de origen/permisos; Mis rutinas agrupa asignadas por maestro, propias/programas e importadas; rutinas asignadas son visibles pero no editables/eliminables desde la seccion personal; E2E cubre visibilidad y bloqueo de eliminacion.
 Validado: `GOCACHE=/tmp/roma-go-cache go test ./...`; `ROMA_E2E_DB_URL='postgres://roma:roma@localhost:5432/roma_e2e?sslmode=disable' GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`; `npm run build`.
-Proximo sugerido: ROMA-032.
+Proximo sugerido: ROMA-033.
+
+### ROMA-032 / CHK-032 - Diseno biblioteca de rutinas
+Estado: Done
+Objetivo: cerrar reglas de producto y modelo tecnico minimo antes de implementar la biblioteca v1.
+Resultado: se definieron plantillas globales `draft`/`published`, permisos de coach/admin, visibilidad autenticada, importacion como copia profunda independiente y separacion entre plantillas, programas y assignments. ROMA-033 queda acotado a listado, previsualizacion, publicacion controlada, importacion y pruebas de ownership. No se tocaron backend, frontend ni migraciones.
+Validado: `git diff --check`.
+Proximo sugerido: ROMA-033.
 
 ## Pendientes importantes
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
