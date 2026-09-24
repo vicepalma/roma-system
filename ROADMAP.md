@@ -45,6 +45,8 @@ Roma v1 entra en fase de cierre. La biblioteca de rutinas y el responsive mobile
 - ROMA-029 - Registrar hallazgos demo y ajustar roadmap.
 - ROMA-030 - Coach puede usar entrenamiento personal.
 - ROMA-031 - Mis rutinas: asignadas, propias e importadas.
+- ROMA-032 - Diseno biblioteca de rutinas.
+- ROMA-033 - Biblioteca de rutinas MVP.
 
 ## Modo De Trabajo Actual
 
@@ -57,7 +59,7 @@ Roma v1 entra en fase de cierre. La biblioteca de rutinas y el responsive mobile
 
 ## Proximo Work Item Recomendado
 
-- ROMA-033 - Biblioteca de rutinas MVP.
+- ROMA-034 - Freeze v1 y criterios mobile.
 
 ## V1 Freeze Plan
 

@@ -3,8 +3,8 @@
 ## Estado actual
 - Fase actual: cierre de Roma v1 / V1 Freeze Plan definido.
 - Objetivo actual: completar biblioteca de rutinas, responsive mobile basico y hardening final.
-- Ultimo checkpoint completado: ROMA-032 / CHK-032 - Diseno biblioteca de rutinas.
-- Proximo checkpoint sugerido: ROMA-033 - Biblioteca de rutinas MVP.
+- Ultimo checkpoint completado: ROMA-033 / CHK-033 - Biblioteca de rutinas MVP.
+- Proximo checkpoint sugerido: ROMA-034 - Freeze v1 y criterios mobile.
 
 ## Decisiones activas
 - [2026-06-24] Decision: no partir desde cero; rescatar repo con estabilizacion previa.
@@ -285,3 +285,11 @@ Proximo sugerido: ROMA-033.
 - Consolidar/eliminar `master_disciple` cuando sea seguro.
 - Ampliar E2E cuando aparezcan endpoints de editar sets/check-ins.
 - Revisar endpoints no cubiertos: invitaciones, check-ins futuros.
+
+
+### ROMA-033 / CHK-033 - Biblioteca de rutinas MVP
+Estado: Done
+Objetivo: permitir descubrir, publicar e importar rutinas como copias personales independientes.
+Resultado: se agregaron tablas de plantillas y estructura propia mediante migracion `0008`, endpoints autenticados para listar/previsualizar/crear/publicar/importar, copia transaccional a `programs` y UI minima de Biblioteca. Coach puede crear/publicar y disciple puede importar plantillas publicadas.
+Validado: `cd backend && GOCACHE=/tmp/roma-go-cache go test ./...`; E2E/API con `ROMA_E2E_DB_URL` y `-run E2E -count=1`; `cd frontend/roma-web && npm run build`; `git diff --check`.
+Proximo sugerido: ROMA-034.

@@ -133,6 +133,7 @@ func main() {
 	progRepo := repository.NewProgramRepository(db)
 	progSvc := service.NewProgramService(progRepo)
 	progH := httpHandlers.NewProgramHandler(progSvc, db)
+	templateH := httpHandlers.NewTemplateHandler(db)
 
 	assignRepo := repository.NewAssignmentRepository(db)
 	histRepo := repository.NewHistoryRepository(db)
@@ -184,6 +185,7 @@ func main() {
 	api := r.Group("/api", security.AuthRequired())
 	exH.Register(api)
 	progH.Register(api)
+	templateH.Register(api)
 	sessH.Register(api)
 	histH.Register(api)
 	coachH.Register(api)

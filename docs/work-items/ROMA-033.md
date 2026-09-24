@@ -1,8 +1,8 @@
 # ROMA-033 - Implementar biblioteca de rutinas MVP
 
-Estado: Planned
+Estado: Done
 Tipo: feature
-Fecha: 2026-07-04
+Fecha: 2026-09-24
 Autor: Codex
 
 ## Objetivo
@@ -61,3 +61,19 @@ Este WI debe ejecutarse despues de ROMA-032, usando el diseno aprobado para dist
 ## Resultado esperado del agente
 
 Implementar solo el MVP definido por ROMA-032, validar backend/E2E/frontend, actualizar tracking y no hacer commit automaticamente.
+
+## Resultado
+
+- Se agrego la migracion `0008_program_templates` con plantillas, semanas, dias y prescripciones propias.
+- Se implementaron endpoints autenticados para listar, previsualizar, crear, publicar e importar plantillas.
+- La importacion copia la estructura completa en una transaccion y crea un `program` independiente.
+- Coach puede crear/publicar; disciple puede listar e importar plantillas publicadas.
+- Se agrego la pantalla Biblioteca y navegacion protegida en frontend.
+- Se cubrio la independencia de ownership mediante el modelo de copia profunda.
+
+## Validado
+
+- `cd backend && GOCACHE=/tmp/roma-go-cache go test ./...`
+- `cd backend && ROMA_E2E_DB_URL=... GOCACHE=/tmp/roma-go-cache go test ./... -run E2E -count=1`
+- `cd frontend/roma-web && npm run build`
+- `git diff --check`

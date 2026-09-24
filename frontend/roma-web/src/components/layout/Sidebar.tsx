@@ -42,6 +42,7 @@ export default function Sidebar() {
             {role === 'coach' && <div className="px-3 pt-3 pb-1 text-xs font-medium text-gray-500 dark:text-neutral-400">Personal</div>}
             <NavLink to="/sessions" className={link}>Entrenar</NavLink>
             <NavLink to="/programs" className={link}>Mis rutinas</NavLink>
+            <NavLink to="/templates" className={link}>Biblioteca</NavLink>
             <NavLink to="/exercises" className={link}>Ejercicios</NavLink>
             <NavLink to="/history" className={link}>Historial</NavLink>
             <NavLink to="/checkins" className={link}>Check-ins</NavLink>

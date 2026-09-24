@@ -26,6 +26,7 @@ import History from './pages/History'
 import SessionsIndex from './pages/SessionsIndex'
 import RootRedirect from './routes/RootRedirect'
 import Checkins from './pages/Checkins'
+import Templates from './pages/Templates'
 
 const router = createBrowserRouter([
   // Login fullscreen fuera del layout
@@ -85,6 +86,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <Programs />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/templates',
+        element: (
+          <ProtectedRoute>
+            <Templates />
           </ProtectedRoute>
         ),
       },
