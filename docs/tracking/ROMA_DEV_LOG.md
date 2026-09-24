@@ -3,8 +3,8 @@
 ## Estado actual
 - Fase actual: cierre de Roma v1 / V1 Freeze Plan definido.
 - Objetivo actual: ejecutar el cierre mobile y hardening final bajo alcance congelado.
-- Ultimo checkpoint completado: ROMA-033 / CHK-033 - Biblioteca de rutinas MVP.
-- Proximo checkpoint sugerido: ROMA-034 - Freeze v1 y criterios mobile.
+- Ultimo checkpoint completado: ROMA-034 / CHK-034 - Freeze v1 + criterios mobile.
+- Proximo checkpoint sugerido: ROMA-035 - Responsive base y navegacion.
 
 ## Decisiones activas
 - [2026-06-24] Decision: no partir desde cero; rescatar repo con estabilizacion previa.
