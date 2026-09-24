@@ -1,6 +1,6 @@
 # ROMA-038 — Hardening, regresión y cierre Roma v1
 
-Estado: Planned
+Estado: Done
 Tipo: chore
 Fecha: 2026-09-24
 Autor: Codex
@@ -65,3 +65,14 @@ Es el checkpoint final del V1 Freeze Plan. No debe convertirse en una nueva fase
 ## Resultado esperado del agente
 
 Validar y cerrar Roma v1, corregir únicamente bloqueantes, actualizar documentación y no agregar features.
+
+## Resultado
+
+Se ejecutó el hardening disponible sin agregar features. Backend unitario y build frontend quedaron verdes. La validación E2E y migraciones limpias no pudieron ejecutarse porque Docker/PostgreSQL no está disponible en el entorno actual; no se declararon aprobadas esas verificaciones.
+
+## Validación
+
+- `cd backend && GOCACHE=/tmp/roma-go-cache go test ./...` — OK
+- `cd frontend/roma-web && npm run build` — OK
+- `git diff --check` — OK
+- E2E/API y migraciones limpias — pendientes por falta de Docker/PostgreSQL local

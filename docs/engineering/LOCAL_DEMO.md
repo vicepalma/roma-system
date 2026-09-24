@@ -73,6 +73,10 @@ Disciple:
 6. Abrir Historial para confirmar que la sesion cerrada aparece.
 7. Crear o editar un check-in basico desde Check-ins.
 
+## Checklist manual de cierre v1
+
+Ejecutar también en 360, 390 y 430 px y en desktop para coach, disciple e independent. La declaración final de v1 requiere además backend unitario, E2E/API y migraciones desde DB limpia verdes.
+
 ## Checklist manual
 
 - Backend responde en `http://localhost:8080/healthz`.

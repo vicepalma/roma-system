@@ -10,6 +10,8 @@ Roma System es una aplicacion para entrenadores y discipulos. El foco actual es 
 
 ## Estado Actual
 
+Roma v1 tiene el alcance congelado y el cierre documental/hardening en curso; la validación final E2E y de migraciones requiere PostgreSQL/Docker disponible.
+
 Ya existen roles `coach` / `disciple`, guards de ownership, self-training minimo, sesiones activas/cerradas, resumen de entrenamiento, historial con filtros backend, check-ins basicos y vista de progreso del disciple para coach.
 
 ## Comandos Rapidos

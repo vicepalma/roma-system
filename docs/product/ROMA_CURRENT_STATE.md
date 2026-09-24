@@ -1,5 +1,9 @@
 # Roma System - Estado Actual
 
+## Estado de v1
+
+El alcance de Roma v1 está congelado en ROMA-032 a ROMA-038. El backend unitario y el build frontend están validados; la verificación final E2E/migraciones limpias queda pendiente de un entorno con PostgreSQL/Docker disponible.
+
 ## Roles
 
 - `coach`: crea ejercicios, programas, semanas, dias, prescripciones y asigna rutinas.

@@ -3,8 +3,8 @@
 ## Estado actual
 - Fase actual: cierre de Roma v1 / V1 Freeze Plan definido.
 - Objetivo actual: ejecutar el cierre mobile y hardening final bajo alcance congelado.
-- Ultimo checkpoint completado: ROMA-037 / CHK-037 - Responsive flujos coach.
-- Proximo checkpoint sugerido: ROMA-038 - Hardening, regresion y cierre v1.
+- Ultimo checkpoint completado: ROMA-038 / CHK-038 - Hardening, regresion y cierre v1.
+- Proximo checkpoint sugerido: completar E2E/migraciones en un entorno con PostgreSQL/Docker; no agregar features.
 
 ## Decisiones activas
 - [2026-06-24] Decision: no partir desde cero; rescatar repo con estabilizacion previa.
@@ -330,3 +330,9 @@ Proximo sugerido: ROMA-037.
 Estado: Completado
 Resultado: Headers, formularios, acciones táctiles y tablas de dashboard, discípulos, asignaciones y ejercicios se adaptaron a mobile sin cambiar lógica ni permisos; desktop se conserva.
 Validado: `cd frontend/roma-web && npm run build`; `git diff --check`.
+
+### CHK-038 - Hardening, regresión y cierre Roma v1
+Estado: Completado con validaciones de entorno pendientes
+Resultado: Backend unitario y build frontend verdes; documentación de estado, demo y cierre actualizada. No se agregaron features ni cambios de backend.
+Validado: `cd backend && GOCACHE=/tmp/roma-go-cache go test ./...`; `cd frontend/roma-web && npm run build`; `git diff --check`.
+Pendiente: E2E/API, migraciones desde DB limpia y checklist manual mobile/desktop requieren Docker/PostgreSQL disponible.

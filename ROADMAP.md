@@ -51,6 +51,7 @@ Roma v1 entra en fase de cierre. La biblioteca de rutinas y el responsive mobile
 - ROMA-035 - Responsive base y navegacion.
 - ROMA-036 - Responsive flujos disciple/independent.
 - ROMA-037 - Responsive flujos coach.
+- ROMA-038 - Hardening, regresion y cierre v1 (validaciones de entorno pendientes).
 
 ## Modo De Trabajo Actual
 
@@ -63,7 +64,7 @@ Roma v1 entra en fase de cierre. La biblioteca de rutinas y el responsive mobile
 
 ## Proximo Work Item Recomendado
 
-- ROMA-038 - Hardening, regresion y cierre v1.
+- Ninguno dentro del freeze; completar E2E/migraciones en un entorno con PostgreSQL/Docker.
 
 WIs finales preparados: `docs/work-items/ROMA-035.md` a `docs/work-items/ROMA-038.md`.
 
