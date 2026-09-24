@@ -17,6 +17,7 @@
 - [2026-09-24] Decision: el V1 Freeze Plan queda limitado a ROMA-032 a ROMA-038.
 - [2026-09-24] Decision: desde ROMA-034 no entra ninguna feature nueva salvo bug critico o bloqueante; el resto va a backlog post-v1.
 - [2026-09-24] Decision: los viewports de aceptación mobile son 360, 390 y 430 px, además de desktop.
+- [2026-09-24] Decision: ROMA-035 a ROMA-038 son los WIs finales de cierre de Roma v1.
 
 ## V1 Freeze Plan
 - ROMA-032 - Diseno biblioteca de rutinas.
@@ -301,4 +302,10 @@ Estado: Done
 Objetivo: congelar el alcance de Roma v1 y definir criterios verificables de aceptación mobile.
 Resultado: se fijaron viewports 360/390/430 px y desktop, flujos críticos de disciple/independent y coach, criterios de navegación, formularios, cards, overflow y acciones principales. Desde este checkpoint solo entran bugs críticos o bloqueantes; app nativa, PWA avanzada y nuevas features quedan fuera. No se modificaron backend ni frontend.
 Validado: `git status --short`; `git diff --check`.
+Proximo sugerido: ROMA-035.
+
+
+### WIs finales de Roma v1 preparados
+Estado: Planned
+Resultado: creados ROMA-035 Responsive base + navegación, ROMA-036 Responsive flujos disciple/independent, ROMA-037 Responsive flujos coach y ROMA-038 Hardening, regresión y cierre Roma v1. No se implementó código.
 Proximo sugerido: ROMA-035.

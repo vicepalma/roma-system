@@ -62,6 +62,8 @@ Roma v1 entra en fase de cierre. La biblioteca de rutinas y el responsive mobile
 
 - ROMA-035 - Responsive base y navegacion.
 
+WIs finales preparados: `docs/work-items/ROMA-035.md` a `docs/work-items/ROMA-038.md`.
+
 ## V1 Freeze Plan
 
 - ROMA-032 - Diseno biblioteca de rutinas.
