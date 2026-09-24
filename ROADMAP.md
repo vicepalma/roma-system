@@ -10,7 +10,7 @@ No es una comunidad, red social ni sistema de simpatizantes.
 
 El proyecto ya tiene backend Go, frontend React/Vite/TypeScript, PostgreSQL con migraciones, Docker Compose, roles `coach` / `disciple`, guards de ownership, tests unitarios backend, E2E/API con DB real, self-training minimo, sesiones activas/cerradas, historial con filtros, check-ins basicos y vista coach de progreso del disciple.
 
-Roma v1 entra en fase de cierre. La biblioteca de rutinas y el responsive mobile basico para los flujos principales forman parte obligatoria de v1.
+Roma v1 queda estable tras completar las validaciones automáticas de ROMA-038; solo resta checklist manual desktop/mobile. La biblioteca de rutinas y el responsive mobile basico para los flujos principales forman parte obligatoria de v1.
 
 ## Completado
 
@@ -51,7 +51,7 @@ Roma v1 entra en fase de cierre. La biblioteca de rutinas y el responsive mobile
 - ROMA-035 - Responsive base y navegacion.
 - ROMA-036 - Responsive flujos disciple/independent.
 - ROMA-037 - Responsive flujos coach.
-- ROMA-038 - Hardening, regresion y cierre v1 (validaciones de entorno pendientes).
+- ROMA-038 - Hardening, regresion y cierre v1.
 
 ## Modo De Trabajo Actual
 
@@ -64,7 +64,7 @@ Roma v1 entra en fase de cierre. La biblioteca de rutinas y el responsive mobile
 
 ## Proximo Work Item Recomendado
 
-- Ninguno dentro del freeze; completar E2E/migraciones en un entorno con PostgreSQL/Docker.
+- Ninguno dentro del freeze; solo registrar bugs críticos o bloqueantes encontrados en la validación manual.
 
 WIs finales preparados: `docs/work-items/ROMA-035.md` a `docs/work-items/ROMA-038.md`.
 

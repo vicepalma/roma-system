@@ -2,7 +2,7 @@
 
 ## Estado de v1
 
-El alcance de Roma v1 está congelado en ROMA-032 a ROMA-038. El backend unitario y el build frontend están validados; la verificación final E2E/migraciones limpias queda pendiente de un entorno con PostgreSQL/Docker disponible.
+El alcance de Roma v1 está congelado en ROMA-032 a ROMA-038. Las validaciones automáticas de ROMA-038 están completas: backend unitario, E2E/API, build frontend, migraciones 0001→0008 desde DB limpia, ausencia de demo en migraciones y seed FST-7 up/down. Roma v1 puede considerarse estable tras completar el checklist manual desktop/mobile.
 
 ## Roles
 

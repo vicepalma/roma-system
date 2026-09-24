@@ -332,7 +332,15 @@ Resultado: Headers, formularios, acciones táctiles y tablas de dashboard, disc�
 Validado: `cd frontend/roma-web && npm run build`; `git diff --check`.
 
 ### CHK-038 - Hardening, regresión y cierre Roma v1
-Estado: Completado con validaciones de entorno pendientes
+Estado: Completado; validación automática OK
 Resultado: Backend unitario y build frontend verdes; documentación de estado, demo y cierre actualizada. No se agregaron features ni cambios de backend.
 Validado: `cd backend && GOCACHE=/tmp/roma-go-cache go test ./...`; `cd frontend/roma-web && npm run build`; `git diff --check`.
-Pendiente: E2E/API, migraciones desde DB limpia y checklist manual mobile/desktop requieren Docker/PostgreSQL disponible.
+Pendiente manual: ejecutar checklist LOCAL_DEMO.md en desktop y viewports 360/390/430 para coach, disciple e independent.
+
+### Validación adicional ROMA-038
+Estado: Bloqueada por entorno
+Resultado: Se intentó completar E2E/API, migraciones limpias, seed y checklist local; Docker no está disponible en esta distro WSL, por lo que PostgreSQL no puede iniciarse. Roma v1 no se declara estable.
+
+
+### Cierre automático ROMA v1
+Validaciones automáticas ROMA-038 completas: migraciones 0001→0008 limpias, sin demo inicial, seed FST-7 aplicado y retirado, E2E/API OK y healthcheck OK. Roma v1 queda estable a falta únicamente de la prueba manual desktop/mobile.

@@ -76,3 +76,20 @@ Se ejecutó el hardening disponible sin agregar features. Backend unitario y bui
 - `cd frontend/roma-web && npm run build` — OK
 - `git diff --check` — OK
 - E2E/API y migraciones limpias — pendientes por falta de Docker/PostgreSQL local
+
+
+Nota de cierre: las validaciones pendientes siguen bloqueadas por la ausencia de Docker/PostgreSQL en el entorno; mantener Roma v1 abierta hasta ejecutarlas.
+
+
+## Validaciones completadas
+
+- Migraciones 0001→0008 desde DB limpia: OK.
+- Migraciones sin datos demo: OK (`@roma.demo` = 0).
+- Seed FST-7 opcional aplicado: OK.
+- Retiro del seed FST-7: OK (`@roma.demo` y programas `[DEMO]` = 0).
+- E2E/API con PostgreSQL real: OK.
+- Healthcheck backend de demo: OK.
+
+## Validación manual pendiente
+
+Abrir el frontend y completar el checklist de `docs/engineering/LOCAL_DEMO.md` en desktop y viewports 360, 390 y 430 px para coach, disciple e independent.
