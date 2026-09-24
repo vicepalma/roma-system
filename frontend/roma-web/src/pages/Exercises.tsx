@@ -80,7 +80,7 @@ export default function Exercises() {
     if (listQ.isLoading) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-xl font-semibold">Ejercicios</h2>
           <div className="h-8 w-32 rounded bg-gray-100 dark:bg-neutral-800" />
         </div>
@@ -92,7 +92,7 @@ export default function Exercises() {
   
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-xl font-semibold">Ejercicios</h2>
         {canManageExercises && (
           <button
@@ -135,16 +135,16 @@ export default function Exercises() {
                 </td>
                 <td className="px-4 py-2 text-right">
                   {canManageExercises && (
-                    <div className="inline-flex items-center gap-2">
+                    <div className="inline-flex min-h-11 flex-wrap items-center gap-2 sm:min-h-0">
                       <button
                         onClick={() => setEdit(e)}
-                        className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+                        className="min-h-11 text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
                       >
                         Editar
                       </button>
                       <button
                         onClick={() => deleteM.mutate(e.id)}
-                        className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-red-600"
+                        className="min-h-11 text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-red-600"
                       >
                         Eliminar
                       </button>

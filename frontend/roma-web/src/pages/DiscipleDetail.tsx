@@ -57,11 +57,11 @@ function renderPrescriptions(list: TodayPrescription[] | undefined, onLog: (p: T
     <ul className="mt-2 space-y-2">
       {rows.map((p) => (
         <li key={p.id} className="rounded border px-3 py-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="font-medium">{p.exercise_name}</div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-gray-500">{p.equipment ?? ''}</span>
-              <button onClick={() => onLog(p)} className="text-xs rounded border px-2 py-1 bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800">
+              <button onClick={() => onLog(p)} className="min-h-11 text-xs rounded border px-2 py-1 bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800">
                 Registrar set
               </button>
             </div>
@@ -275,7 +275,7 @@ export default function DiscipleDetail() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold">Discípulo: {displayName}</h2>
           {sidFromToday && (
@@ -285,7 +285,7 @@ export default function DiscipleDetail() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {sidFromToday ? (
             <NavLink
               to={`/sessions/${sidFromToday}`}
@@ -344,7 +344,7 @@ export default function DiscipleDetail() {
               </div>
 
               <div className="mt-4 space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="font-medium">Últimos {range} días</div>
                   <RangePicker value={range} onChange={setRange} />
                 </div>
@@ -385,12 +385,12 @@ export default function DiscipleDetail() {
       </div>
 
       <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
-        <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
           <div className="font-semibold">Últimos entrenamientos</div>
           <NavLink
             to={`/history?disciple_id=${id}`}
             state={{ discipleName: displayName, discipleEmail: displayEmail }}
-            className="text-xs rounded border px-2 py-1 bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-blue-600"
+            className="min-h-11 text-xs rounded border px-2 py-1 bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-blue-600"
           >
             Ver historial completo
           </NavLink>
@@ -426,7 +426,7 @@ export default function DiscipleDetail() {
                 </div>
                 <NavLink
                   to={`/sessions/${session.session_id}`}
-                  className="text-xs rounded border px-2 py-1 bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-blue-600"
+                  className="min-h-11 text-xs rounded border px-2 py-1 bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 text-blue-600"
                 >
                   Ver resumen
                 </NavLink>

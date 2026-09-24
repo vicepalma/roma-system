@@ -106,7 +106,7 @@ export default function AssignmentForm({ disciples, programs, submitting, onSubm
         />
       </label>
 
-      <div className="sm:col-span-2 flex items-center gap-2 pt-1">
+      <div className="sm:col-span-2 flex flex-wrap items-center gap-2 pt-1">
         <button
           type="submit"
           disabled={submitting}

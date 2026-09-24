@@ -3,8 +3,8 @@
 ## Estado actual
 - Fase actual: cierre de Roma v1 / V1 Freeze Plan definido.
 - Objetivo actual: ejecutar el cierre mobile y hardening final bajo alcance congelado.
-- Ultimo checkpoint completado: ROMA-036 / CHK-036 - Responsive flujos disciple/independent.
-- Proximo checkpoint sugerido: ROMA-037 - Responsive flujos coach.
+- Ultimo checkpoint completado: ROMA-037 / CHK-037 - Responsive flujos coach.
+- Proximo checkpoint sugerido: ROMA-038 - Hardening, regresion y cierre v1.
 
 ## Decisiones activas
 - [2026-06-24] Decision: no partir desde cero; rescatar repo con estabilizacion previa.
@@ -325,3 +325,8 @@ Objetivo: hacer completamente usables en mobile los flujos personales.
 Resultado: se adaptaron Entrenar, sesión activa, selección de día, registro/cierre de sets, Mis rutinas, Historial, Check-ins y Biblioteca/importación; acciones y modales se apilan en pantallas estrechas y desktop conserva sus breakpoints.
 Validado: `cd frontend/roma-web && npm run build`; `git diff --check`.
 Proximo sugerido: ROMA-037.
+
+### CHK-037 - Responsive flujos coach
+Estado: Completado
+Resultado: Headers, formularios, acciones táctiles y tablas de dashboard, discípulos, asignaciones y ejercicios se adaptaron a mobile sin cambiar lógica ni permisos; desktop se conserva.
+Validado: `cd frontend/roma-web && npm run build`; `git diff --check`.

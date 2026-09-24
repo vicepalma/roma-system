@@ -110,7 +110,7 @@ export default function Dashboard() {
                 <td className="px-4 py-2 text-right">
                   <NavLink
                     to={`/disciples/${d.id}`}
-                    className="text-blue-600 hover:underline"
+                    className="inline-flex min-h-11 items-center text-blue-600 hover:underline sm:min-h-0"
                     state={{ name: d.name, email: d.email }}
                   >
                     Ver detalle

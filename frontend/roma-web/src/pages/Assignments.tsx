@@ -134,13 +134,13 @@ export default function Assignments() {
         />
       </div>
 
-      <div className="flex items-center justify-between px-1 sm:px-4 pt-2">
+      <div className="flex flex-col items-stretch gap-3 px-1 pt-2 sm:flex-row sm:items-center sm:justify-between sm:px-4">
         <div className="text-sm text-gray-600 dark:text-neutral-300">
           {showAll
             ? `Mostrando ${all.length} asignaciones`
             : `Mostrando ${collapsed.length} (colapsadas de ${all.length})`}
         </div>
-        <label className="text-sm inline-flex items-center gap-2 select-none">
+        <label className="min-h-11 text-sm inline-flex items-center gap-2 select-none">
           <input
             type="checkbox"
             className="accent-blue-600"
@@ -197,7 +197,7 @@ export default function Assignments() {
                     <button
                       disabled={a.is_active || mActivate.isPending}
                       onClick={() => mActivate.mutate({ id: a.id, discipleId: a.disciple_id })}
-                      className={`text-xs rounded px-2 py-1 border dark:border-neutral-800 ${a.is_active ? 'opacity-60 cursor-default' : 'bg-white hover:bg-gray-50 dark:bg-neutral-900'
+                      className={`min-h-11 text-xs rounded px-2 py-1 border dark:border-neutral-800 ${a.is_active ? 'opacity-60 cursor-default' : 'bg-white hover:bg-gray-50 dark:bg-neutral-900'
                         }`}
                       title={a.is_active ? 'Ya activo' : 'Activar este programa'}
                     >

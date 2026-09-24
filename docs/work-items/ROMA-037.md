@@ -1,6 +1,6 @@
 # ROMA-037 — Responsive flujos coach
 
-Estado: Planned
+Estado: Done
 Tipo: feature
 Fecha: 2026-09-24
 Autor: Codex
@@ -62,3 +62,12 @@ Depende de ROMA-035 y adapta las tareas de gestión y seguimiento coach sin ampl
 ## Resultado esperado del agente
 
 Implementar solo responsive de flujos coach, validar build/prueba manual, actualizar tracking y no hacer commit automáticamente.
+
+## Resultado
+
+Se ajustaron headers, formularios, acciones táctiles y tablas de los flujos coach para 360/390/430 px, preservando desktop y la lógica existente.
+
+## Validación
+
+- `cd frontend/roma-web && npm run build`
+- `git diff --check`
