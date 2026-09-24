@@ -128,7 +128,7 @@ export default function SessionsIndex() {
   return (
     <div className="space-y-4">
       <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="text-xs uppercase text-gray-500 dark:text-neutral-400">
               {haveActiveSession ? 'Sesión activa' : 'Entrenar'}
@@ -150,7 +150,7 @@ export default function SessionsIndex() {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {haveActiveSession ? (
               <Link
                 to={`/sessions/${activeSessQ.data?.id}`}
@@ -168,7 +168,7 @@ export default function SessionsIndex() {
       </div>
 
       <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="text-xs uppercase text-gray-500 dark:text-neutral-400">Rutina activa</div>
             {activeAssignQ.isLoading ? (
@@ -229,7 +229,7 @@ export default function SessionsIndex() {
                     onClick={() => setSelectedDay(d)}
                     className={`w-full rounded border px-3 py-3 text-left dark:border-neutral-800 ${selected ? 'border-black bg-black text-white dark:border-white' : 'bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:hover:bg-neutral-800'}`}
                   >
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <div className={`text-xs ${selected ? 'text-gray-200' : 'text-gray-500 dark:text-neutral-400'}`}>
                           Semana {d.week_index}
@@ -256,10 +256,10 @@ export default function SessionsIndex() {
               })}
             </div>
 
-            <div className="rounded border p-3 dark:border-neutral-800">
+            <div className="min-w-0 rounded border p-3 dark:border-neutral-800">
               {selectedDay ? (
                 <>
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <div className="font-medium text-sm">{dayLabel(selectedDay)}</div>
                       <div className="text-xs text-gray-500">

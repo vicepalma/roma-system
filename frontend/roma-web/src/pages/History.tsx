@@ -64,7 +64,7 @@ export default function History() {
   ]
 
   return (
-    <div className="mx-auto max-w-6xl p-6 space-y-4">
+    <div className="mx-auto max-w-6xl space-y-4 p-3 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold">Historial</h2>
@@ -200,7 +200,7 @@ export default function History() {
             const finished = session.status === 'closed'
             return (
               <li key={session.session_id} className="rounded border px-3 py-3 dark:border-neutral-800">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <div className="text-sm font-medium">
                       {session.program_title?.trim() || 'Rutina'}
@@ -228,7 +228,7 @@ export default function History() {
                   </div>
                   <Link
                     to={`/sessions/${session.session_id}`}
-                    className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+                    className="min-h-11 sm:min-h-0 text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
                   >
                     Ver resumen
                   </Link>

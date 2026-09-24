@@ -1,6 +1,6 @@
 # ROMA-036 — Responsive flujos disciple/independent
 
-Estado: Planned
+Estado: Done
 Tipo: feature
 Fecha: 2026-09-24
 Autor: Codex
@@ -65,3 +65,15 @@ Depende de ROMA-035 y cubre la ejecución diaria de disciple/independent en los 
 ## Resultado esperado del agente
 
 Implementar solo responsive de flujos personales, validar build/prueba manual, actualizar tracking y no hacer commit automáticamente.
+
+## Resultado
+
+- Se adaptaron Entrenar, sesión activa, selección de día, sets y cierre para apilar acciones y contenido en mobile.
+- Se ajustaron Mis rutinas, Historial, Check-ins y Biblioteca para evitar cortes y overflow accidental.
+- Se hicieron modales y formularios utilizables en pantallas estrechas con acciones táctiles.
+- Se preservó el layout desktop mediante breakpoints responsive.
+
+## Validado
+
+- `cd frontend/roma-web && npm run build`
+- `git diff --check`

@@ -262,7 +262,7 @@ export default function Programs() {
               const canDeleteProgram = p.can_delete ?? canEditProgram
               return (
                 <li key={`${p.source ?? 'program'}-${p.assignment_id ?? p.id}`}>
-                  <div className="flex items-center justify-between gap-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800">
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800">
                     <button
                       onClick={() => selectProgram(p)}
                       className={`min-w-0 flex-1 text-left rounded px-2 py-1 text-sm ${selectedProgram?.id === p.id
@@ -282,7 +282,7 @@ export default function Programs() {
                       {canEditProgram && (
                         <button
                           onClick={() => setEditingProgram(p)}
-                          className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+                          className="min-h-11 sm:min-h-0 text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
                         >
                           Editar
                         </button>
@@ -295,7 +295,7 @@ export default function Programs() {
                             }
                           }}
                           disabled={delProgramM.isPending}
-                          className="text-xs rounded px-2 py-1 border text-red-600 bg-white hover:bg-red-50 active:bg-red-100 dark:bg-neutral-900 dark:border-neutral-800 transition-colors duration-150"
+                          className="min-h-11 sm:min-h-0 text-xs rounded px-2 py-1 border text-red-600 bg-white hover:bg-red-50 active:bg-red-100 dark:bg-neutral-900 dark:border-neutral-800 transition-colors duration-150"
                         >
                           Eliminar
                         </button>
@@ -321,14 +321,14 @@ export default function Programs() {
   }, [weeks, selectedWeek])
 
   return (
-    <div className="grid md:grid-cols-[320px,1fr] gap-4">
+    <div className="grid min-w-0 gap-4 md:grid-cols-[320px,minmax(0,1fr)]">
       {/* Columna izquierda: Programas */}
       <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4 space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="font-semibold">{isCoach ? 'Mis rutinas y programas' : canUsePersonalTraining ? 'Mis rutinas' : 'Programas'}</div>
           <button
             onClick={() => setOpenNewProgram(true)}
-            className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+            className="min-h-11 sm:min-h-0 text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
           >
             Nuevo
           </button>
@@ -351,14 +351,14 @@ export default function Programs() {
       <div className="space-y-4">
         {/* Semanas */}
         <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="font-semibold">Semanas {selectedProgram ? `— ${selectedProgram.title}` : ''}</div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
             {selectedProgram && canUsePersonalTraining && selectedCanActivate && selectedProgram.kind === 'self_training' && (
               <button
                 onClick={() => selfAssignM.mutate(selectedProgram.id)}
                 disabled={selfAssignM.isPending}
-                className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+                className="min-h-11 sm:min-h-0 text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
               >
                 {activeAssignQ.data?.program_id === selectedProgram.id ? 'Rutina activa' : (selfAssignM.isPending ? 'Activando…' : 'Activar rutina')}
               </button>
@@ -366,7 +366,7 @@ export default function Programs() {
             {selectedProgram && selectedCanEdit && (
               <button
                 onClick={() => setOpenNewWeek(true)}
-                className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+                className="min-h-11 sm:min-h-0 text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
               >
                 Agregar semana
               </button>
@@ -381,7 +381,7 @@ export default function Programs() {
           {selectedProgram && weeks.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
               {weeks.map((w) => (
-                <div key={w.id} className="inline-flex items-center">
+                <div key={w.id} className="inline-flex max-w-full items-center">
                   {selectedCanEdit && (
                   <button
                     onClick={() => { setSelectedWeek(w); setSelectedDay(null) }}
@@ -403,7 +403,7 @@ export default function Programs() {
                     }}
                     disabled={delWeekM.isPending}
                     className={clsx(
-                      'text-xs rounded px-2 py-1 border text-red-600 bg-white ',
+                      'min-h-11 sm:min-h-0 text-xs rounded px-2 py-1 border text-red-600 bg-white ',
                       'hover:bg-red-50 active:bg-red-100',
                       'dark:bg-neutral-900 dark:border-neutral-800',
                       'transition-colors duration-150'
@@ -420,14 +420,14 @@ export default function Programs() {
 
         {/* Días */}
         <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="font-semibold">
               Días {selectedWeek ? `— Semana ${selectedWeek.week_index}` : ''}
             </div>
             {selectedWeek && selectedCanEdit && (
               <button
                 onClick={() => setOpenNewDay(true)}
-                className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+                className="min-h-11 sm:min-h-0 text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
               >
                 Agregar día
               </button>
@@ -448,7 +448,7 @@ export default function Programs() {
                 const isActive = selectedDay?.id === d.id
                 return (
                   <li key={d.id} className="rounded border px-3 py-2 dark:border-neutral-800">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       {selectedCanEdit && (
                       <button
                         onClick={() => setSelectedDay(d)}
@@ -492,12 +492,12 @@ export default function Programs() {
 
 {/* Prescripciones del día */}
 <div className="rounded-lg border bg-white dark:bg-neutral-900 dark:border-neutral-800 p-4">
-  <div className="flex items-center justify-between">
+  <div className="flex flex-wrap items-center justify-between gap-2">
     <div className="font-semibold">Prescripciones {selectedDay ? `— Día ${selectedDay.day_index}` : ''}</div>
     {selectedDay && selectedCanEdit && (
       <button
         onClick={() => setOpenNewPresc(true)}
-        className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+        className="min-h-11 sm:min-h-0 text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
       >
         Agregar prescripción
       </button>
@@ -520,7 +520,7 @@ export default function Programs() {
 
   return (
     <li key={p.id} className="rounded border px-3 py-2 dark:border-neutral-800">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <div className="text-sm font-medium">{title}</div>
 

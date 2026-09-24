@@ -3,8 +3,8 @@
 ## Estado actual
 - Fase actual: cierre de Roma v1 / V1 Freeze Plan definido.
 - Objetivo actual: ejecutar el cierre mobile y hardening final bajo alcance congelado.
-- Ultimo checkpoint completado: ROMA-035 / CHK-035 - Responsive base + navegacion.
-- Proximo checkpoint sugerido: ROMA-036 - Responsive flujos disciple/independent.
+- Ultimo checkpoint completado: ROMA-036 / CHK-036 - Responsive flujos disciple/independent.
+- Proximo checkpoint sugerido: ROMA-037 - Responsive flujos coach.
 
 ## Decisiones activas
 - [2026-06-24] Decision: no partir desde cero; rescatar repo con estabilizacion previa.
@@ -317,3 +317,11 @@ Objetivo: hacer usable la estructura principal en mobile preservando desktop.
 Resultado: se agregó navegación móvil con overlay, header y contenedor responsive, controles táctiles para theme/logout y prevención de overflow horizontal accidental. El sidebar desktop se mantiene.
 Validado: `cd frontend/roma-web && npm run build`; `git diff --check`.
 Proximo sugerido: ROMA-036.
+
+
+### ROMA-036 / CHK-036 - Responsive flujos disciple/independent
+Estado: Done
+Objetivo: hacer completamente usables en mobile los flujos personales.
+Resultado: se adaptaron Entrenar, sesión activa, selección de día, registro/cierre de sets, Mis rutinas, Historial, Check-ins y Biblioteca/importación; acciones y modales se apilan en pantallas estrechas y desktop conserva sus breakpoints.
+Validado: `cd frontend/roma-web && npm run build`; `git diff --check`.
+Proximo sugerido: ROMA-037.

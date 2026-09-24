@@ -23,7 +23,7 @@ export default function SessionView() {
   const [otherDayId, setOtherDayId] = useState<string | null>(null)
 
   const disabledBtn = "opacity-60 cursor-not-allowed"
-  const baseBtn = "text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+  const baseBtn = "min-h-11 sm:min-h-0 text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
 
   const sessQ = useQuery({
     queryKey: ['session', sessionIdParam],
@@ -178,11 +178,11 @@ export default function SessionView() {
     <div className="space-y-4">
       {/* Banner de sesión cerrada */}
       {isClosed && (
-        <div className="rounded-lg border bg-gray-50 dark:bg-neutral-800/50 dark:border-neutral-700 p-3 flex items-center justify-between">
-          <div className="text-sm">
+        <div className="rounded-lg border bg-gray-50 dark:bg-neutral-800/50 dark:border-neutral-700 p-3 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 break-words text-sm">
             <b>Sesión finalizada.</b> El entrenamiento está en modo lectura.
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link to="/history" className={baseBtn}>Ver historial</Link>
             <Link to="/sessions" className={baseBtn}>Volver a Entrenar</Link>
           </div>
@@ -236,7 +236,7 @@ export default function SessionView() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="text-sm text-gray-600 dark:text-neutral-300">
             {sess?.performed_at ? new Date(sess.performed_at).toLocaleString() : '—'}
@@ -255,7 +255,7 @@ export default function SessionView() {
 
       {/* Banner mismatch de programa: se puede seguir mostrando; si cerrada, sólo permite ir a /sessions */}
       {showMismatchBanner && (
-        <div className="rounded-lg border bg-amber-50 dark:bg-amber-900/20 dark:border-amber-900 p-3 text-sm flex items-center justify-between gap-3">
+        <div className="rounded-lg border bg-amber-50 dark:bg-amber-900/20 dark:border-amber-900 p-3 text-sm flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             Estás viendo una sesión de <b>otro programa</b>.
             {isClosed
@@ -300,8 +300,8 @@ export default function SessionView() {
 
         <ul className="mt-2 space-y-2">
           {presc.map((p: any) => (
-            <li key={p.id} className="rounded border px-3 py-2 dark:border-neutral-800">
-              <div className="flex items-center justify-between">
+            <li key={p.id} className="min-w-0 rounded border px-3 py-2 dark:border-neutral-800">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm font-medium">{p.exercise_name || p.exercise_id}</div>
                 {/* + Set - deshabilitado si cerrada */}
                 <button
@@ -329,9 +329,9 @@ export default function SessionView() {
         ) : (
           <ul className="mt-2 space-y-2">
             {sets.map((s: any) => (
-              <li key={s.id} className="rounded border px-3 py-2 dark:border-neutral-800">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm">
+              <li key={s.id} className="min-w-0 rounded border px-3 py-2 dark:border-neutral-800">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 break-words text-sm">
                     <span className="font-medium">Set {s.set_index}</span>
                     {s.exercise_name ? ` — ${s.exercise_name}` : ''}
                     {` — Reps: ${s.reps}`}
@@ -382,7 +382,7 @@ export default function SessionView() {
           <div className="font-semibold mb-2">Cardio</div>
           <ul className="mt-2 space-y-1 text-sm">
             {cardio.map((c: any) => (
-              <li key={c.id} className="rounded border px-3 py-2 dark:border-neutral-800">
+              <li key={c.id} className="min-w-0 rounded border px-3 py-2 dark:border-neutral-800">
                 {c.modality} — {c.minutes} min
                 {c.target_hr_min ? ` · HR ${c.target_hr_min}-${c.target_hr_max ?? ''}` : ''}
                 {c.notes ? ` · ${c.notes}` : ''}
@@ -424,8 +424,8 @@ export default function SessionView() {
         ) : (
           <ul className="space-y-2">
             {days.map((d: AssignmentDay) => (
-              <li key={d.id} className="rounded border px-3 py-2 dark:border-neutral-800">
-                <div className="flex items-center justify-between">
+              <li key={d.id} className="min-w-0 rounded border px-3 py-2 dark:border-neutral-800">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="text-sm font-medium">
                       {d.title?.trim() ? d.title : `Día ${d.day_index}`}
@@ -437,7 +437,7 @@ export default function SessionView() {
                   <button
                     onClick={() => mPatchDay.mutate(d.id)}
                     disabled={sets.length > 0 || mPatchDay.isPending}
-                    className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+                    className="min-h-11 sm:min-h-0 text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
                   >
                     {mPatchDay.isPending ? 'Cambiando…' : 'Usar este día'}
                   </button>
@@ -505,9 +505,9 @@ function OtherDayPicker({
         ) : (
           <ul className="space-y-2">
             {items.map((p: any) => (
-              <li key={p.id} className="rounded border px-3 py-2 dark:border-neutral-800">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm">
+              <li key={p.id} className="min-w-0 rounded border px-3 py-2 dark:border-neutral-800">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 break-words text-sm">
                     <div className="font-medium">{p.exercise_name || p.exercise_id}</div>
                     <div className="text-xs text-gray-600">
                       Series: {p.series} · Reps: {p.reps}{p.rest_sec ? ` · Descanso: ${p.rest_sec}s` : ''}{p.to_failure ? ' · A fallo' : ''}
@@ -515,7 +515,7 @@ function OtherDayPicker({
                   </div>
                   <button
                     onClick={() => onPickPresc(p.id)}
-                    className="text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
+                    className="min-h-11 sm:min-h-0 text-xs rounded px-2 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800"
                   >
                     Usar
                   </button>

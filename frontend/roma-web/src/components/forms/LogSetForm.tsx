@@ -84,8 +84,8 @@ export default function LogSetForm({
         </label>
       </div>
 
-      <div className="flex items-center gap-2 pt-1">
-        <button type="submit" className="text-sm rounded px-3 py-1 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800">
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        <button type="submit" className="min-h-11 text-sm rounded px-3 py-2 border bg-white hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800">
           Guardar
         </button>
         {onCancel && (

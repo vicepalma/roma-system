@@ -148,7 +148,7 @@ export default function Checkins() {
           type="button"
           disabled={!canSubmit || createM.isPending}
           onClick={() => createM.mutate()}
-          className="mt-3 rounded bg-black px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-3 min-h-11 rounded bg-black px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           {createM.isPending ? 'Guardando...' : 'Guardar check-in'}
         </button>
@@ -296,7 +296,7 @@ export default function Checkins() {
             </li>
           ))}
         </ul>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mt-4 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
           <button
             type="button"
             disabled={!canPrev || q.isFetching}
